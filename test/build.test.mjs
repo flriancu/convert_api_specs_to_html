@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
@@ -65,10 +65,39 @@ test('the contents links point at anchors that exist', () => {
   }
 });
 
+test('a $ref to a URL fails the build before anything is fetched', () => {
+  const spec = path.join(OUT, 'remote.openapi.yaml');
+  writeFileSync(spec, [
+    'openapi: 3.1.0',
+    'info: { title: Remote, version: 1.0.0 }',
+    'paths: {}',
+    'components:',
+    '  schemas:',
+    "    Leak: { $ref: 'http://127.0.0.1:9/latest/meta-data/' }",
+    '',
+  ].join('\n'));
+  const result = run(spec, '-o', OUT);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /is not a relative path inside the specification's folder/);
+  assert.doesNotMatch(result.stderr, /bundling/);
+});
+
+test('two specs that would write the same page are refused', () => {
+  const a = path.join(OUT, 'a', 'api.yaml');
+  const b = path.join(OUT, 'b', 'api.yml');
+  for (const file of [a, b]) {
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, 'openapi: 3.1.0\ninfo: { title: T, version: 1.0.0 }\npaths: {}\n');
+  }
+  const result = run(a, b, '-o', OUT);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /api\.html/);
+});
+
 test('fails with exit 1 on a missing description', () => {
   const result = run(path.join(EXAMPLES, 'missing.yaml'), '-o', OUT);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /missing\.yaml: redocly bundle failed/);
+  assert.match(result.stderr, /missing\.yaml: the description does not exist/);
 });
 
 test('prints usage and exits with 2 without descriptions', () => {

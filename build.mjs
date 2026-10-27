@@ -4,6 +4,8 @@
  *
  * Each description becomes <name>.html, with its styles in page.css beside it:
  *
+ * - its $refs are checked to stay inside its folder, so nothing is fetched or read from
+ *   elsewhere (check_refs.mjs);
  * - Redocly CLI bundles the description into one document, resolving $refs to other files
  *   (redocly.mjs), with its telemetry off;
  * - Scalar's converters write it as Markdown, OpenAPI and AsyncAPI alike (convert.mjs);
@@ -24,6 +26,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { checkPage } from './check_page.mjs';
+import { checkRefs } from './check_refs.mjs';
 import { expectedNames, toMarkdown } from './convert.mjs';
 import { renderPage } from './page.mjs';
 import { redoclyCli, runRedocly } from './redocly.mjs';
@@ -67,18 +70,35 @@ function bundle(cli, spec) {
   return doc;
 }
 
+/** The page a spec becomes: its file name with the last extension replaced by .html. */
+function pageName(spec) {
+  return `${path.basename(spec, path.extname(spec))}.html`;
+}
+
 async function build(cli, spec, outDir) {
-  const doc = bundle(cli, spec);
-  let problems = [];
-  if (doc === null) {
-    problems = ['redocly bundle failed'];
-  } else {
-    const html = renderPage(await toMarkdown(doc), { cssHref: STYLESHEET_NAME });
-    const outFile = path.join(outDir, `${path.basename(spec, path.extname(spec))}.html`);
-    writeFileSync(outFile, html);
-    problems = checkPage(html, { cssHref: STYLESHEET_NAME, names: expectedNames(doc) });
+  // Refs are checked before Redocly resolves them, so a URL is never fetched.
+  let problems = checkRefs(spec);
+  if (problems.length === 0) {
+    const doc = bundle(cli, spec);
+    if (doc === null) {
+      problems = ['redocly bundle failed'];
+    } else {
+      const html = renderPage(await toMarkdown(doc), { cssHref: STYLESHEET_NAME });
+      writeFileSync(path.join(outDir, pageName(spec)), html);
+      problems = checkPage(html, { cssHref: STYLESHEET_NAME, names: expectedNames(doc) });
+    }
   }
   return problems;
+}
+
+/** Page names that more than one of the specs would write, so one page would replace another. */
+function collidingPages(specs) {
+  const counts = new Map();
+  for (const spec of specs) {
+    const name = pageName(spec).toLowerCase();
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts].filter(([, n]) => n > 1).map(([name]) => name);
 }
 
 async function main() {
@@ -91,6 +111,9 @@ async function main() {
     exitCode = args.help ? 0 : 2;
   } else if (cli === null) {
     console.error('Redocly CLI is not installed; run "npm ci" in this package or in the project using it');
+    exitCode = 2;
+  } else if (collidingPages(args.specs).length > 0) {
+    console.error(`these pages would be written by more than one spec: ${collidingPages(args.specs).join(', ')}`);
     exitCode = 2;
   } else {
     mkdirSync(args.outDir, { recursive: true });
