@@ -1,4 +1,7 @@
-/* The pages build.mjs writes (page.mjs). No external resources: system fonts only. */
+/* The pages build.mjs writes (page.mjs). No external resources: system fonts only.
+   Each part of a page is a section (page.mjs): level-2 parts are bands, each operation, channel,
+   message and schema (level 3) is a card whose heading stays at its top while it scrolls, and
+   examples fold until asked for. */
 
 :root {
   color-scheme: light dark;
@@ -8,6 +11,16 @@
   --code-bg: #f6f8fa;
   --link: #0969da;
   --accent: #6639ba;
+  --band: #eef1f5;
+  --card-bg: #f6f8fa;
+  --card-line: #c4ccd5;
+  --inner-bg: #ffffff;
+  --get: #1a7f37;
+  --post: #0550ae;
+  --put: #8a4600;
+  --delete: #b62324;
+  --send: #8250df;
+  --receive: #0a6a73;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +31,16 @@
     --code-bg: #151b23;
     --link: #4493f8;
     --accent: #ab7df8;
+    --band: #1c2330;
+    --card-bg: #161b22;
+    --card-line: #3d444d;
+    --inner-bg: #0d1117;
+    --get: #1a7f37;
+    --post: #1f6feb;
+    --put: #9e6a03;
+    --delete: #da3633;
+    --send: #8957e5;
+    --receive: #1b7c83;
   }
 }
 
@@ -60,8 +83,131 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
 ul, ol { padding-left: 1.6em; }
 li + li { margin-top: 0.2em; }
 
+/* ---- level 2: bands ---- */
+section.s2 { margin-top: 3em; }
+section.s2 > h2 {
+  padding: 0.35em 0.6em;
+  background: var(--band);
+  border-bottom: 0;
+  border-left: 6px solid var(--accent);
+  border-radius: 4px;
+}
+
+/* ---- level 3: cards ---- */
+section.s3 {
+  overflow: clip;
+  margin: 1.6em 0;
+  padding: 0 1.1em 1em;
+  background: var(--card-bg);
+  border: 1px solid var(--card-line);
+  border-left: 6px solid var(--accent);
+  border-radius: 8px;
+}
+section.s3 > h3 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 -1.1em 0.4em;
+  padding: 0.7em 1.1em 0.5em;
+  color: var(--text);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-line);
+  border-radius: 8px 8px 0 0;
+}
+section.s3 pre, section.s3 code { background: var(--inner-bg); }
+section.s3 pre { border: 1px solid var(--card-line); }
+section.s3 pre code { background: none; }
+
+/* The list under a card's heading (method, path, id, tags) reads as one line of facts. */
+section.s3 > h3 + ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 1.4em;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+section.s3 > h3 + ul li + li { margin-top: 0; }
+.endpoint { width: 100%; font-size: 1.1em; color: var(--text); }
+
+.method {
+  display: inline-block;
+  min-width: 4.2em;
+  padding: 0.1em 0.5em;
+  border-radius: 4px;
+  font: 700 0.8em/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: center;
+  color: #ffffff;
+}
+.method-get { background: var(--get); }
+.method-post { background: var(--post); }
+.method-put { background: var(--put); }
+.method-delete { background: var(--delete); }
+/* Methods the palette has no colour for; white on #57606a is 6.4:1 in both schemes. */
+.method-patch, .method-options, .method-head, .method-trace { background: #57606a; }
+.method-send { background: var(--send); }
+.method-receive { background: var(--receive); }
+
+/* ---- levels 4 and 5: the parts of a card ---- */
+section.s4 { margin-top: 1.4em; }
+section.s4 > h4 {
+  font-size: 0.8em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* In an AsyncAPI page, level 4 is a message: a heading, not a label. */
+.asyncapi section.s4 {
+  padding-top: 0.8em;
+  border-top: 1px dashed var(--card-line);
+}
+.asyncapi section.s4 > h4 {
+  font-size: 1.1em;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+
+section.s5 {
+  margin: 0.8em 0;
+  padding-left: 0.9em;
+  border-left: 3px solid var(--card-line);
+}
+section.s5 > h5 { margin-top: 0.6em; font-size: 1em; color: var(--text); }
+
+/* ---- examples, folded ---- */
+details.example { margin: 0.6em 0; }
+details.example > summary {
+  display: inline-block;
+  padding: 0.15em 0.7em;
+  font-size: 0.9em;
+  cursor: pointer;
+  color: var(--link);
+  background: var(--inner-bg);
+  border: 1px solid var(--card-line);
+  border-radius: 999px;
+}
+details.example > summary::-webkit-details-marker { display: none; }
+details.example > summary::before { content: "\25B8\00A0"; }
+details.example[open] > summary::before { content: "\25BE\00A0"; }
+details.example > pre { margin-top: 0.4em; }
+
+summary:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+
+/* A link to a part outlines it. */
+:target { scroll-margin-top: 0.5em; }
+section.s3:target { outline: 3px solid var(--link); outline-offset: 2px; }
+
 @media print {
   main { max-width: none; padding: 0; }
   pre, table { break-inside: avoid; }
   a { color: inherit; }
+  section.s3 { break-inside: auto; background: none; }
+  section.s3 > h3 { position: static; background: none; }
+  .method { color: #000; background: none; border: 1px solid #000; }
+  details.example > summary { display: none; }
+  /* Folded examples still print (::details-content, Chromium 131 and later). */
+  details::details-content { content-visibility: visible; display: block; }
 }

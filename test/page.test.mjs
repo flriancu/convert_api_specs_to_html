@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { escapeHtml, renderPage } from '../page.mjs';
+import { escapeHtml, renderPage, structure } from '../page.mjs';
 
 const CSS = { cssHref: 'page.css' };
 
@@ -22,10 +22,53 @@ test('raw HTML from a description is shown as text', () => {
   assert.match(html, /&lt;meta http-equiv=&quot;refresh&quot;/);
 });
 
-test("the converters' anchors stay anchors", () => {
-  const html = renderPage('# T\n\n<a id="scalar-operation-get-notes"></a>\n\n### Get notes', CSS);
-  assert.match(html, /<a id="scalar-operation-get-notes"><\/a>/);
+test("the converters' anchors stay anchors; one before a heading becomes its section's id", () => {
+  const html = renderPage('# T\n\n<a id="scalar-example-1"></a>\n\nText.\n\n<a id="scalar-operation-get-notes"></a>\n\n### Get notes', CSS);
+  assert.match(html, /<a id="scalar-example-1"><\/a>/);
+  assert.match(html, /<section class="s3" id="scalar-operation-get-notes">\n<h3>Get notes<\/h3>/);
+  assert.doesNotMatch(html, /<a id="scalar-operation-get-notes">/);
   assert.doesNotMatch(html, /&lt;a id/);
+});
+
+test('each heading from level 2 down opens a section that closes before the next one of its level or above', () => {
+  const html = renderPage('# T\n\n## A\n\n### A1\n\n#### A1a\n\n### A2\n\n## B\n\nText.', CSS);
+  const main = html.split('<main>\n')[1].split('\n</main>')[0];
+  const shape = main.match(/<section class="s\d"|<\/section>|<h\d>[^<]*/g).join(' ');
+  assert.equal(
+    shape,
+    '<h1>T <section class="s2" <h2>A <section class="s3" <h3>A1 <section class="s4" <h4>A1a </section> </section> ' +
+      '<section class="s3" <h3>A2 </section> </section> <section class="s2" <h2>B </section>',
+  );
+});
+
+test("an operation's method and path become a badge; an AsyncAPI action too", () => {
+  const openapi = renderPage('# T\n\n### Get notes\n\n- **Method:** `DELETE`\n- **Path:** `/notes/{id}`\n- **Operation ID:** `deleteNote`', CSS);
+  assert.match(openapi, /<li class="endpoint"><span class="method method-delete">DELETE<\/span> <code>\/notes\/\{id\}<\/code><\/li>/);
+  assert.match(openapi, /<li><strong>Operation ID:<\/strong> <code>deleteNote<\/code><\/li>/);
+  assert.doesNotMatch(openapi, /Method:|Path:/);
+  const asyncapi = renderPage('# T\n\n### Receive notes.\n\n- **action:** `receive`', CSS);
+  assert.match(asyncapi, /<span class="method method-receive">RECEIVE<\/span>/);
+  const plain = renderPage('# T\n\n- **Method:** `GET`\n- **Other:** `x`', CSS);
+  assert.doesNotMatch(plain, /class="method/, 'a method without a path is not an operation');
+});
+
+test('examples fold behind their label; other bold paragraphs and code blocks do not', () => {
+  const html = renderPage('# T\n\n**Generated payload example:**\n\n```json\n{"a": 1}\n```\n\n**Note:**\n\n```\nplain\n```', CSS);
+  assert.match(html, /<details class="example">\n<summary>Generated payload example<\/summary>\n<pre><code class="language-json">/);
+  assert.equal((html.match(/<details/g) ?? []).length, 1);
+  assert.match(html, /<p><strong>Note:<\/strong><\/p>/);
+  const payload = renderPage('# T\n\n**payload:**\n\n```json\n{}\n```', CSS);
+  assert.match(payload, /<summary>Example payload<\/summary>/, 'a label alone says what it labels');
+});
+
+test('the page body names its kind, for the stylesheet', () => {
+  assert.match(renderPage('# T', { ...CSS, kind: 'asyncapi' }), /<body class="asyncapi">/);
+  assert.match(renderPage('# T', CSS), /<body>/);
+});
+
+test('structure leaves level-1 headings and non-heading blocks alone', () => {
+  const tokens = [{ type: 'heading', depth: 1, text: 'T' }, { type: 'paragraph', tokens: [] }];
+  assert.deepEqual(structure(tokens).map((t) => t.type), ['heading', 'paragraph']);
 });
 
 test('an anchor carrying anything more is shown as text', () => {

@@ -38,6 +38,19 @@ export async function toMarkdown(doc) {
   return markdown;
 }
 
+/** How many operations the document has: OpenAPI methods on its paths, AsyncAPI operations. */
+export function operationCount(doc) {
+  let count = 0;
+  if (kindOf(doc) === 'openapi') {
+    for (const item of Object.values(doc.paths ?? {})) {
+      count += HTTP_METHODS.filter((method) => item?.[method]).length;
+    }
+  } else {
+    count = Object.keys(doc.operations ?? {}).length;
+  }
+  return count;
+}
+
 /**
  * The names a complete rendering shows: for OpenAPI each operation's id (or method and path)
  * and each schema; for AsyncAPI each channel and schema, each operation by its title or summary

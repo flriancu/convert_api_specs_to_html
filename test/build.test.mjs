@@ -61,7 +61,15 @@ test('the contents links point at anchors that exist', () => {
   const targets = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
   assert.ok(targets.length > 0, 'the page has contents links');
   for (const target of targets) {
-    assert.match(html, new RegExp(`<a id="${target}">`), `anchor ${target}`);
+    assert.match(html, new RegExp(`<(a|section class="s[2-6]") id="${target}">`), `anchor ${target}`);
+  }
+});
+
+test('every operation of the examples has its badge, and their sections balance', () => {
+  for (const [name, badges] of [['notes.openapi.html', 2], ['notes.asyncapi.html', 1]]) {
+    const html = readFileSync(path.join(OUT, name), 'utf8');
+    assert.equal((html.match(/<span class="method method-[a-z]+">/g) ?? []).length, badges, name);
+    assert.equal((html.match(/<section /g) ?? []).length, (html.match(/<\/section>/g) ?? []).length, name);
   }
 });
 

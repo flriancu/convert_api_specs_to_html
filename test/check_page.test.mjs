@@ -40,6 +40,12 @@ test('a missing stylesheet link is a problem', () => {
   assert.deepEqual(checkPage(page, OPTIONS), ['does not link its stylesheet page.css']);
 });
 
+test('a page whose operations lack their badges is a problem', () => {
+  const page = GOOD.replace('</body>', '<span class="method method-get">GET</span></body>');
+  assert.deepEqual(checkPage(page, { ...OPTIONS, operations: 1 }), []);
+  assert.deepEqual(checkPage(page, { ...OPTIONS, operations: 2 }), ['shows 1 operation badges for the specification\'s 2 operations']);
+});
+
 test('a name from the specification that the page does not show is a problem', () => {
   const page = GOOD.replace('<p>Note</p>', '');
   assert.deepEqual(checkPage(page, OPTIONS), ['does not show 1 of 2 names from the specification: Note']);

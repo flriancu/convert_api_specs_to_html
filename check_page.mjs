@@ -1,7 +1,9 @@
 /**
  * Checks that a page keeps its promises: nothing that a strict
- * Content-Security-Policy blocks or that runs, the stylesheet linked, and every operation,
- * channel, message and schema of the specification shown.
+ * Content-Security-Policy blocks or that runs, the stylesheet linked, every operation,
+ * channel, message and schema of the specification shown, and each operation's badge (which
+ * page.mjs makes from the converters' Markdown, so a converter that writes it differently
+ * fails here rather than losing the badges quietly).
  */
 
 const FORBIDDEN = [
@@ -33,7 +35,7 @@ function shows(text, name) {
 }
 
 /** Problems with a page, as sentences; empty when it has every property. */
-export function checkPage(html, { cssHref, names }) {
+export function checkPage(html, { cssHref, names, operations }) {
   const problems = FORBIDDEN.filter(([pattern]) => pattern.test(html)).map(([, problem]) => problem);
   if (!html.includes(`<link rel="stylesheet" href="${cssHref}">`)) {
     problems.push(`does not link its stylesheet ${cssHref}`);
@@ -42,6 +44,10 @@ export function checkPage(html, { cssHref, names }) {
   const missing = names.filter((name) => !shows(text, name));
   if (missing.length > 0) {
     problems.push(`does not show ${missing.length} of ${names.length} names from the specification: ${missing.slice(0, 10).join(', ')}`);
+  }
+  const badges = (html.match(/<span class="method method-[a-z]+">/g) ?? []).length;
+  if (operations !== undefined && badges !== operations) {
+    problems.push(`shows ${badges} operation badges for the specification's ${operations} operations`);
   }
   return problems;
 }

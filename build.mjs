@@ -12,8 +12,11 @@
  * - the Markdown becomes a page with no scripts, no inline styles and no data: URLs, raw HTML
  *   from the description shown as text (page.mjs), so it reads where a strict
  *   Content-Security-Policy is applied, such as Jenkins' archived artifacts;
+ * - each heading's part of the page is a section the stylesheet draws as a card, with the
+ *   operation's method as a badge and examples folded (page.mjs);
  * - the page is checked for those properties and for completeness: every operation, channel,
- *   message and schema of the description is shown (check_page.mjs). A failed check exits 1.
+ *   message and schema of the description is shown, each operation with its badge
+ *   (check_page.mjs). A failed check exits 1.
  *
  * Usage (installed as a dependency, the command is convert-api-specs-to-html):
  *   node build.mjs <spec>... [-o <dir>]
@@ -26,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 
 import { checkPage } from './check_page.mjs';
 import { checkRefs } from './check_refs.mjs';
-import { expectedNames, toMarkdown } from './convert.mjs';
+import { expectedNames, kindOf, operationCount, toMarkdown } from './convert.mjs';
 import { renderPage } from './page.mjs';
 import { bundle, redoclyCli } from './redocly.mjs';
 
@@ -65,9 +68,9 @@ async function build(cli, spec, outDir) {
     if (doc === null) {
       problems = ['redocly bundle failed'];
     } else {
-      const html = renderPage(await toMarkdown(doc), { cssHref: STYLESHEET_NAME });
+      const html = renderPage(await toMarkdown(doc), { cssHref: STYLESHEET_NAME, kind: kindOf(doc) });
       writeFileSync(path.join(outDir, pageName(spec)), html);
-      problems = checkPage(html, { cssHref: STYLESHEET_NAME, names: expectedNames(doc) });
+      problems = checkPage(html, { cssHref: STYLESHEET_NAME, names: expectedNames(doc), operations: operationCount(doc) });
     }
   }
   return problems;
