@@ -32,6 +32,7 @@ paths:
               schema:
                 type: array
                 items: { $ref: './schemas.yaml#/$defs/Note' }
+              example: [{ id: n-2, text: Buy milk }, { id: n-1, text: Call the garage }]
         '400':
           $ref: '#/components/responses/Invalid'
     post:
@@ -48,12 +49,15 @@ paths:
               additionalProperties: false
               properties:
                 text: { type: string, minLength: 1 }
+            example: { text: Buy milk }
       responses:
         '201':
           description: The note as created.
           content:
             application/json:
               schema: { $ref: './schemas.yaml#/$defs/Note' }
+              examples:
+                created: { $ref: '#/components/examples/Note' }
         '400':
           $ref: '#/components/responses/Invalid'
 components:
@@ -67,3 +71,8 @@ components:
       content:
         application/json:
           schema: { $ref: './schemas.yaml#/$defs/Error' }
+          example: { code: INVALID, message: The text must not be empty. }
+  examples:
+    Note:
+      summary: A new note
+      value: { id: n-2, text: Buy milk }

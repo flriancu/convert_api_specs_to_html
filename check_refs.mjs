@@ -11,7 +11,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+
+import { runsAsCommand } from './cli.mjs';
 
 // $ref: value  /  "$ref": "value"  /  $ref: 'value'  (YAML block or flow style, JSON)
 const REF = /["']?\$ref["']?\s*:\s*(?:"([^"]*)"|'([^']*)'|([^\s,}\]]+))/g;
@@ -77,7 +78,6 @@ function main() {
   process.exitCode = exitCode;
 }
 
-const runDirectly = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (runDirectly) {
+if (runsAsCommand(import.meta.url)) {
   main();
 }

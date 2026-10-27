@@ -1,7 +1,7 @@
 # convert_api_specs_to_html
 
 Renders OpenAPI and AsyncAPI descriptions as plain HTML pages, one per description, with the same
-look for both. The pages run no scripts, use no inline styles and load nothing from other hosts:
+look for both, and checks the descriptions' `$ref`s and examples. The pages run no scripts, use no inline styles and load nothing from other hosts:
 they read wherever a strict Content-Security-Policy applies (for example, files archived by
 Jenkins), open offline, and print well.
 
@@ -43,24 +43,34 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.1.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.2.0
 ```
 
 ```json
 "scripts": {
-  "lint": "check-api-spec-refs api.openapi.yaml events.asyncapi.yaml && redocly lint api.openapi.yaml events.asyncapi.yaml",
+  "lint": "check-api-spec-refs api.openapi.yaml events.asyncapi.yaml && redocly lint api.openapi.yaml events.asyncapi.yaml && check-api-spec-examples api.openapi.yaml events.asyncapi.yaml",
   "docs": "convert-api-specs-to-html api.openapi.yaml events.asyncapi.yaml -o out/docs"
 }
 ```
 
-`check-api-spec-refs` is the same `$ref` check on its own. Run it before a linter or anything else
-that resolves `$ref`s: they fetch URLs and read outside files as they go.
+- `check-api-spec-refs` is the same `$ref` check on its own. Run it before a linter or anything
+  else that resolves `$ref`s: they fetch URLs and read outside files as they go.
+- `check-api-spec-examples` checks every example against the schema it illustrates
+  (`check_examples.mjs`): OpenAPI request bodies, responses, parameters and headers, with
+  references to `components/examples` resolved; AsyncAPI message examples against the message's
+  payload and headers; and the `examples` keyword of schemas. Linters leave AsyncAPI examples
+  unchecked. It checks `$ref`s first, bundles with Redocly CLI, and validates with
+  [Ajv](https://ajv.js.org/) as JSON Schema 2020-12 with format checks; payloads in another
+  schema format (Avro, RAML) are skipped. A mismatch exits with 1 and says where the example is
+  and what does not match.
+
+Each command exits with 1 when it finds a problem and with 2 on a usage error.
 
 ## Development
 
 ```
 npm ci
-npm run examples:lint   # the examples pass Redocly's recommended-strict rules
+npm run examples:lint   # the examples pass Redocly's recommended-strict rules and match their schemas
 npm test                # unit tests, and both examples built and checked
 ```
 

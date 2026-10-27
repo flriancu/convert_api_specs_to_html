@@ -1,7 +1,7 @@
 {
   "name": "convert-api-specs-to-html",
-  "version": "2.1.0",
-  "description": "Render OpenAPI and AsyncAPI descriptions as plain HTML pages: no scripts, no inline styles, nothing from other hosts",
+  "version": "2.2.0",
+  "description": "Render OpenAPI and AsyncAPI descriptions as plain HTML pages (no scripts, no inline styles, nothing from other hosts), and check their $refs and examples",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -10,12 +10,15 @@
   "type": "module",
   "bin": {
     "convert-api-specs-to-html": "build.mjs",
-    "check-api-spec-refs": "check_refs.mjs"
+    "check-api-spec-refs": "check_refs.mjs",
+    "check-api-spec-examples": "check_examples.mjs"
   },
   "files": [
     "build.mjs",
+    "check_examples.mjs",
     "check_page.mjs",
     "check_refs.mjs",
+    "cli.mjs",
     "convert.mjs",
     "page.css",
     "page.mjs",
@@ -27,12 +30,14 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test",
-    "examples:lint": "redocly lint examples/notes.openapi.yaml examples/notes.asyncapi.yaml"
+    "examples:lint": "redocly lint examples/notes.openapi.yaml examples/notes.asyncapi.yaml && node check_examples.mjs examples/notes.openapi.yaml examples/notes.asyncapi.yaml"
   },
   "dependencies": {
     "@redocly/cli": "2.71.1",
     "@scalar/asyncapi-to-markdown": "0.2.2",
     "@scalar/openapi-to-markdown": "1.7.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "marked": "18.1.2"
   }
 }

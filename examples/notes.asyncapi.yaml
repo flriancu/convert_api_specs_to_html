@@ -34,3 +34,6 @@ components:
       name: note.created
       title: A note was created
       payload: { $ref: './schemas.yaml#/$defs/Note' }
+      examples:
+        - name: created
+          payload: { id: n-2, text: Buy milk }

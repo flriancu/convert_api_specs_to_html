@@ -20,8 +20,7 @@
  *
  *   node build.mjs api.openapi.yaml events.asyncapi.yaml -o out
  */
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,7 +28,7 @@ import { checkPage } from './check_page.mjs';
 import { checkRefs } from './check_refs.mjs';
 import { expectedNames, toMarkdown } from './convert.mjs';
 import { renderPage } from './page.mjs';
-import { redoclyCli, runRedocly } from './redocly.mjs';
+import { bundle, redoclyCli } from './redocly.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STYLESHEET = path.join(HERE, 'page.css');
@@ -51,23 +50,6 @@ function parseArgs(argv) {
     }
   }
   return args;
-}
-
-/** The spec as one JSON document with its $refs to other files resolved; null if Redocly fails. */
-function bundle(cli, spec) {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'convert-api-specs-'));
-  let doc = null;
-  try {
-    const file = path.join(dir, 'bundle.json');
-    const result = runRedocly(cli, ['bundle', spec, '-o', file, '--ext', 'json']);
-    process.stderr.write(result.stderr ?? '');
-    if (result.status === 0) {
-      doc = JSON.parse(readFileSync(file, 'utf8'));
-    }
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-  return doc;
 }
 
 /** The page a spec becomes: its file name with the last extension replaced by .html. */
