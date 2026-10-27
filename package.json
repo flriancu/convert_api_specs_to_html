@@ -1,0 +1,28 @@
+{
+  "name": "convert-api-specs-to-html",
+  "version": "1.0.0",
+  "description": "Render OpenAPI and AsyncAPI descriptions as self-contained HTML pages: no CDN, no telemetry, no badge",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flriancu/convert_api_specs_to_html.git"
+  },
+  "type": "module",
+  "bin": {
+    "convert-api-specs-to-html": "build.mjs"
+  },
+  "files": [
+    "build.mjs",
+    "check_page.mjs",
+    "template.hbs"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@redocly/cli": "2.71.1"
+  }
+}
