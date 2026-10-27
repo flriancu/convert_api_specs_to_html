@@ -1,61 +1,46 @@
 #!/usr/bin/env node
 /**
- * Render OpenAPI and AsyncAPI descriptions as self-contained HTML pages.
+ * Render OpenAPI and AsyncAPI descriptions as script-free HTML pages.
  *
- * Each description becomes one HTML file, rendered by Redoc through Redocly CLI `build-docs`.
- * The page:
+ * Each description becomes <name>.html, with its styles in page.css beside it:
  *
- * - embeds Redoc instead of loading it from the Redocly CDN (`--inlineBundle`), so it opens
- *   offline;
- * - sends no telemetry: REDOCLY_TELEMETRY=off turns it off for the CLI run and for the page;
- * - fetches nothing from other hosts and hides the "API docs by Redocly" badge (template.hbs).
- *
- * After each build the page is checked for those properties (check_page.mjs), so a Redocly CLI
- * upgrade that changes them fails here instead of shipping silently. The CLI's output is passed
- * on without its notice about Redoc 3 (cli_output.mjs).
+ * - Redocly CLI bundles the description into one document, resolving $refs to other files
+ *   (redocly.mjs), with its telemetry off;
+ * - Scalar's converters write it as Markdown, OpenAPI and AsyncAPI alike (convert.mjs);
+ * - the Markdown becomes a page with no scripts, no inline styles and no data: URLs, raw HTML
+ *   from the description shown as text (page.mjs), so it reads where a strict
+ *   Content-Security-Policy is applied, such as Jenkins' archived artifacts;
+ * - the page is checked for those properties and for completeness: every operation, channel,
+ *   message and schema of the description is shown (check_page.mjs). A failed check exits 1.
  *
  * Usage (installed as a dependency, the command is convert-api-specs-to-html):
- *   node build.mjs <spec>... [-o <dir>] [-- <build-docs options>]
+ *   node build.mjs <spec>... [-o <dir>]
  *
  *   node build.mjs api.openapi.yaml events.asyncapi.yaml -o out
- *   node build.mjs api.openapi.yaml -- --openapi.hideDownloadButtons=true
  */
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { checkPage } from './check_page.mjs';
-import { withoutRedoc3Notice } from './cli_output.mjs';
+import { expectedNames, toMarkdown } from './convert.mjs';
+import { renderPage } from './page.mjs';
+import { redoclyCli, runRedocly } from './redocly.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE = path.join(HERE, 'template.hbs');
+const STYLESHEET = path.join(HERE, 'page.css');
+const STYLESHEET_NAME = 'page.css';
 
-const USAGE = 'usage: convert-api-specs-to-html <spec>... [-o <dir>] [-- <build-docs options>]';
-
-/** Redocly CLI's entry point, wherever npm installed it; null when it is not installed. */
-function redoclyCli() {
-  let cli = null;
-  try {
-    cli = createRequire(import.meta.url).resolve('@redocly/cli/bin/cli.js');
-  } catch {
-    cli = null;
-  }
-  return cli;
-}
+const USAGE = 'usage: convert-api-specs-to-html <spec>... [-o <dir>]';
 
 function parseArgs(argv) {
-  const args = { specs: [], outDir: 'out', extra: [] };
-  const split = argv.indexOf('--');
-  const own = split < 0 ? argv : argv.slice(0, split);
-  args.extra = split < 0 ? [] : argv.slice(split + 1);
-
-  for (let i = 0; i < own.length; i += 1) {
-    const arg = own[i];
+  const args = { specs: [], outDir: 'out' };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
     if (arg === '-o' || arg === '--output') {
       i += 1;
-      args.outDir = own[i];
+      args.outDir = argv[i];
     } else if (arg === '-h' || arg === '--help') {
       args.help = true;
     } else {
@@ -65,33 +50,38 @@ function parseArgs(argv) {
   return args;
 }
 
-/** The output name: the spec's file name with its last extension replaced by .html. */
-function outputFor(spec, outDir) {
-  const name = path.basename(spec, path.extname(spec));
-  return path.join(outDir, `${name}.html`);
+/** The spec as one JSON document with its $refs to other files resolved; null if Redocly fails. */
+function bundle(cli, spec) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'convert-api-specs-'));
+  let doc = null;
+  try {
+    const file = path.join(dir, 'bundle.json');
+    const result = runRedocly(cli, ['bundle', spec, '-o', file, '--ext', 'json']);
+    process.stderr.write(result.stderr ?? '');
+    if (result.status === 0) {
+      doc = JSON.parse(readFileSync(file, 'utf8'));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  return doc;
 }
 
-function build(cli, spec, outFile, extra) {
-  const result = spawnSync(
-    process.execPath,
-    [cli, 'build-docs', spec, '-o', outFile, '-t', TEMPLATE, '--inlineBundle', ...extra],
-    {
-      stdio: ['inherit', 'inherit', 'pipe'],
-      encoding: 'utf8',
-      env: { ...process.env, REDOCLY_TELEMETRY: 'off' },
-    },
-  );
-  process.stderr.write(withoutRedoc3Notice(result.stderr ?? ''));
+async function build(cli, spec, outDir) {
+  const doc = bundle(cli, spec);
   let problems = [];
-  if (result.status !== 0) {
-    problems = [`redocly build-docs exited with ${result.status ?? result.signal}`];
+  if (doc === null) {
+    problems = ['redocly bundle failed'];
   } else {
-    problems = checkPage(readFileSync(outFile, 'utf8'));
+    const html = renderPage(await toMarkdown(doc), { cssHref: STYLESHEET_NAME });
+    const outFile = path.join(outDir, `${path.basename(spec, path.extname(spec))}.html`);
+    writeFileSync(outFile, html);
+    problems = checkPage(html, { cssHref: STYLESHEET_NAME, names: expectedNames(doc) });
   }
   return problems;
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const cli = redoclyCli();
   let exitCode = 0;
@@ -104,10 +94,10 @@ function main() {
     exitCode = 2;
   } else {
     mkdirSync(args.outDir, { recursive: true });
+    copyFileSync(STYLESHEET, path.join(args.outDir, STYLESHEET_NAME));
     const failed = [];
     for (const spec of args.specs) {
-      const outFile = outputFor(spec, args.outDir);
-      const problems = build(cli, spec, outFile, args.extra);
+      const problems = await build(cli, spec, args.outDir);
       for (const problem of problems) {
         console.error(`${spec}: ${problem}`);
       }
@@ -123,4 +113,4 @@ function main() {
   process.exitCode = exitCode;
 }
 
-main();
+await main();

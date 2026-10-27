@@ -1,0 +1,67 @@
+/* The pages build.mjs writes (page.mjs). No external resources: system fonts only. */
+
+:root {
+  color-scheme: light dark;
+  --text: #1b1f24;
+  --muted: #59636e;
+  --line: #d1d9e0;
+  --code-bg: #f6f8fa;
+  --link: #0969da;
+  --accent: #6639ba;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6edf3;
+    --muted: #9198a1;
+    --line: #3d444d;
+    --code-bg: #151b23;
+    --link: #4493f8;
+    --accent: #ab7df8;
+  }
+}
+
+html { background: Canvas; }
+
+body {
+  margin: 0;
+  color: var(--text);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  overflow-wrap: anywhere;
+}
+
+h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.6em 0 0.5em; }
+h1 { font-size: 2em; margin-top: 0.3em; padding-bottom: 0.3em; border-bottom: 1px solid var(--line); }
+h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--line); }
+h3 { font-size: 1.25em; color: var(--accent); }
+h4 { font-size: 1.05em; }
+h5, h6 { font-size: 0.95em; color: var(--muted); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code, pre { font: 0.875em/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+code { background: var(--code-bg); padding: 0.15em 0.35em; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 12px 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+
+table { border-collapse: collapse; margin: 0.8em 0; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); }
+
+blockquote { margin: 0.8em 0; padding: 0 1em; color: var(--muted); border-left: 4px solid var(--line); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+ul, ol { padding-left: 1.6em; }
+li + li { margin-top: 0.2em; }
+
+@media print {
+  main { max-width: none; padding: 0; }
+  pre, table { break-inside: avoid; }
+  a { color: inherit; }
+}

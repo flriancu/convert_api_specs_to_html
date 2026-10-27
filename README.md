@@ -1,25 +1,44 @@
 # convert_api_specs_to_html
 
-Renders OpenAPI and AsyncAPI descriptions as self-contained HTML pages, one per description, with
-the same look for both. The pages open offline, send no telemetry and fetch nothing from other
-hosts, so they are safe to attach to an email or publish behind a firewall.
-
-The renderer is [Redoc](https://github.com/Redocly/redoc) 3, through the `build-docs` command of
-[Redocly CLI](https://github.com/Redocly/redocly-cli) (both MIT), pinned in `package.json`. Redoc 3
-reads OpenAPI 2.0 to 3.2 and AsyncAPI 3.x and detects the format from the document.
+Renders OpenAPI and AsyncAPI descriptions as plain HTML pages, one per description, with the same
+look for both. The pages run no scripts, use no inline styles and load nothing from other hosts:
+they read wherever a strict Content-Security-Policy applies (for example, files archived by
+Jenkins), open offline, and print well.
 
 ```
 npm ci
 node build.mjs api.openapi.yaml events.asyncapi.yaml -o out
-node build.mjs api.openapi.yaml -- --openapi.hideDownloadButtons=true
 ```
+
+Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); the stylesheet
+`page.css` is written beside the pages, which link it.
+
+## How it works
+
+1. [Redocly CLI](https://github.com/Redocly/redocly-cli) bundles the description into one document,
+   resolving `$ref`s to other files, with its telemetry off (`redocly.mjs`).
+2. Scalar's converters, [`@scalar/openapi-to-markdown`](https://www.npmjs.com/package/@scalar/openapi-to-markdown)
+   and [`@scalar/asyncapi-to-markdown`](https://www.npmjs.com/package/@scalar/asyncapi-to-markdown),
+   write it as Markdown (`convert.mjs`). The OpenAPI converter upgrades the document before
+   rendering and prints the upgraded version; the page shows the version the description declares.
+3. [marked](https://github.com/markedjs/marked) turns the Markdown into the page (`page.mjs`).
+   Descriptions come from whoever wrote the specification, so raw HTML in them is shown as text;
+   only the converters' id-only anchors pass. Links keep `http`, `https`, `mailto` and `#`
+   targets; images become links.
+4. Each page is checked (`check_page.mjs`): no scripts, `<style>`, style attributes, event
+   handlers, `data:`/`javascript:` URLs, `<meta http-equiv>`, forms or frames; the stylesheet is
+   linked; and every operation, channel, message and schema of the description is shown. A
+   failed check exits with 1 and names the problem, so a converter upgrade that drops content
+   fails the build.
+
+All dependencies are pinned exactly in `package.json`.
 
 ## Use in a project
 
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v1.1.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.0.0
 ```
 
 ```json
@@ -27,29 +46,6 @@ npm install --save-dev github:flriancu/convert_api_specs_to_html#v1.1.0
   "docs": "convert-api-specs-to-html api.openapi.yaml events.asyncapi.yaml -o out/docs"
 }
 ```
-
-## Options
-
-Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`). Relative `$ref`s
-to other files are resolved and embedded. Anything after `--` goes to `redocly build-docs`
-unchanged: Redoc options as `--openapi.<option>` or `--asyncapi.<option>`, `--title`, `--config`.
-
-## What differs from plain `build-docs`
-
-| Default `build-docs` | Here | How |
-|---|---|---|
-| Loads Redoc from `cdn.redocly.com` | Redoc embedded in the page (about 2.5 MB) | `--inlineBundle` |
-| Usage telemetry from the CLI and from the page | None | `REDOCLY_TELEMETRY=off` for the run |
-| "API docs by Redocly" badge, logo from `cdn.redoc.ly` | Hidden, not fetched | CSS rule and Content-Security-Policy in `template.hbs` |
-| A boxed notice about Redoc 3 on every run | Not printed; other output unchanged | `cli_output.mjs` |
-
-The Content-Security-Policy allows inline scripts and styles plus `data:` and `blob:` URLs only,
-so the page cannot reach any host, whatever a future Redoc version tries to load.
-
-Redoc has no option for the badge; `template.hbs` hides the element that holds its link. After
-each build, `check_page.mjs` confirms the page is embedded, has telemetry off, carries the policy
-and still has the badge link the CSS rule targets. A build that fails a check exits with 1 and
-names the problem.
 
 ## Development
 
@@ -60,13 +56,9 @@ npm test                # unit tests, and both examples built and checked
 ```
 
 CI runs the same on Linux and Windows with Node.js 22 and 24, for every push and pull request.
-Dependabot proposes Redocly CLI and GitHub Actions upgrades as pull requests, so CI checks each
-upgrade before it is merged.
-
-## Upgrading Redocly CLI
-
-Merge Dependabot's pull request once CI passes. If the badge check fails, update the selector in
-`template.hbs` to the new markup; if the notice test fails, update `cli_output.mjs`.
+Dependabot proposes dependency and GitHub Actions upgrades as pull requests, so CI checks each
+upgrade before it is merged; the completeness check is what catches a converter that renders
+less.
 
 ## Requirements
 
