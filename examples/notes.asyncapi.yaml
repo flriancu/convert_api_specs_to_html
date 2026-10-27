@@ -1,0 +1,36 @@
+asyncapi: 3.0.0
+info:
+  title: Notes events
+  version: 1.0.0
+  description: A small example that the tests render. The service publishes each new note.
+defaultContentType: application/json
+servers:
+  local:
+    host: localhost:8080
+    protocol: ws
+    security:
+      - $ref: '#/components/securitySchemes/token'
+channels:
+  events:
+    address: /api/v1/events
+    messages:
+      noteCreated: { $ref: '#/components/messages/noteCreated' }
+operations:
+  receiveNoteCreated:
+    action: receive
+    channel: { $ref: '#/channels/events' }
+    summary: Receive each note when it is created.
+    messages:
+      - { $ref: '#/channels/events/messages/noteCreated' }
+components:
+  securitySchemes:
+    token:
+      type: httpApiKey
+      name: token
+      in: query
+      description: The same bearer token as the HTTP API, passed when the socket opens.
+  messages:
+    noteCreated:
+      name: note.created
+      title: A note was created
+      payload: { $ref: './schemas.yaml#/$defs/Note' }

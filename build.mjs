@@ -11,7 +11,8 @@
  * - fetches nothing from other hosts and hides the "API docs by Redocly" badge (template.hbs).
  *
  * After each build the page is checked for those properties (check_page.mjs), so a Redocly CLI
- * upgrade that changes them fails here instead of shipping silently.
+ * upgrade that changes them fails here instead of shipping silently. The CLI's output is passed
+ * on without its notice about Redoc 3 (cli_output.mjs).
  *
  * Usage (installed as a dependency, the command is convert-api-specs-to-html):
  *   node build.mjs <spec>... [-o <dir>] [-- <build-docs options>]
@@ -26,6 +27,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { checkPage } from './check_page.mjs';
+import { withoutRedoc3Notice } from './cli_output.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE = path.join(HERE, 'template.hbs');
@@ -73,8 +75,13 @@ function build(cli, spec, outFile, extra) {
   const result = spawnSync(
     process.execPath,
     [cli, 'build-docs', spec, '-o', outFile, '-t', TEMPLATE, '--inlineBundle', ...extra],
-    { stdio: 'inherit', env: { ...process.env, REDOCLY_TELEMETRY: 'off' } },
+    {
+      stdio: ['inherit', 'inherit', 'pipe'],
+      encoding: 'utf8',
+      env: { ...process.env, REDOCLY_TELEMETRY: 'off' },
+    },
   );
+  process.stderr.write(withoutRedoc3Notice(result.stderr ?? ''));
   let problems = [];
   if (result.status !== 0) {
     problems = [`redocly build-docs exited with ${result.status ?? result.signal}`];

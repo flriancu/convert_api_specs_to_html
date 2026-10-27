@@ -19,7 +19,7 @@ node build.mjs api.openapi.yaml -- --openapi.hideDownloadButtons=true
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v1.0.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v1.1.0
 ```
 
 ```json
@@ -41,6 +41,7 @@ unchanged: Redoc options as `--openapi.<option>` or `--asyncapi.<option>`, `--ti
 | Loads Redoc from `cdn.redocly.com` | Redoc embedded in the page (about 2.5 MB) | `--inlineBundle` |
 | Usage telemetry from the CLI and from the page | None | `REDOCLY_TELEMETRY=off` for the run |
 | "API docs by Redocly" badge, logo from `cdn.redoc.ly` | Hidden, not fetched | CSS rule and Content-Security-Policy in `template.hbs` |
+| A boxed notice about Redoc 3 on every run | Not printed; other output unchanged | `cli_output.mjs` |
 
 The Content-Security-Policy allows inline scripts and styles plus `data:` and `blob:` URLs only,
 so the page cannot reach any host, whatever a future Redoc version tries to load.
@@ -50,10 +51,22 @@ each build, `check_page.mjs` confirms the page is embedded, has telemetry off, c
 and still has the badge link the CSS rule targets. A build that fails a check exits with 1 and
 names the problem.
 
+## Development
+
+```
+npm ci
+npm run examples:lint   # the examples pass Redocly's recommended-strict rules
+npm test                # unit tests, and both examples built and checked
+```
+
+CI runs the same on Linux and Windows with Node.js 22 and 24, for every push and pull request.
+Dependabot proposes Redocly CLI and GitHub Actions upgrades as pull requests, so CI checks each
+upgrade before it is merged.
+
 ## Upgrading Redocly CLI
 
-Change the exact version in `package.json`, run `npm install`, build a description and read the
-check results. If the badge check fails, update the selector in `template.hbs` to the new markup.
+Merge Dependabot's pull request once CI passes. If the badge check fails, update the selector in
+`template.hbs` to the new markup; if the notice test fails, update `cli_output.mjs`.
 
 ## Requirements
 

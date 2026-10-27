@@ -1,0 +1,4 @@
+# Redocly CLI configuration for linting the examples.
+extends:
+  - recommended-strict
+telemetry: off
