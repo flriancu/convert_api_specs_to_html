@@ -9,7 +9,10 @@
  *   is dropped when the field has a description of its own: the link leads to it;
  * - lines saying an operation uses the document's servers and authentication are dropped;
  *   those are documented once, at the top;
- * - a request body's "Required" line joins its content type: "(required)" or "(optional)".
+ * - a request body's "Required" line joins its content type: "(required)" or "(optional)";
+ * - a body that is not JSON (an image, raw bytes) keeps its content type line, without the
+ *   converter's "`any`" for its schema or the JSON example it generates for it: raw binary has
+ *   no JSON type (OpenAPI 3.1.1, 4.4.2). An example the author wrote stays.
  *
  * AsyncAPI: the messages and schemas, which the converter writes as level-2 parts one after
  * another, are grouped under "Messages" and "Schemas", one level down.
@@ -27,6 +30,11 @@ const INHERITED = [
   /^\*\*Servers:\*\*[  ]+\[Inherited servers\]\(#scalar-context-global-servers\)\n\n/gm,
   /^\*\*Authentication:\*\*[  ]+\[Global authentication\]\(#scalar-context-global-authentication\)\n\n/gm,
 ];
+// A content type line, and the media types whose bodies are JSON.
+const CONTENT_TYPE_LINE = /^\*\*Content type:\*\*[ \u00a0]+`([^`]+)`/;
+const JSON_MEDIA_TYPE = /^application\/(?:[\w.+-]+\+)?json$/i;
+const GENERATED_EXAMPLE = /^\*\*Generated example:\*\*$/;
+const EXAMPLE_ANCHOR = /^<a id="scalar-example-[^"]+"><\/a>$/;
 const REQUIRED_BODY = /^\*\*Required:\*\*[  ]+`(true|false)`\n\n(\*\*Content type:\*\*[  ]+`[^`\n]*`)$/gm;
 
 /**
@@ -86,8 +94,35 @@ function writeOutPrimitives(markdown) {
   return out.join('\n');
 }
 
+/**
+ * Under a content type that is not JSON, until the next heading or content type: no "`any`"
+ * line for the schema and no generated example (its anchor, label and code block).
+ */
+function withoutJsonForBinary(markdown) {
+  const lines = markdown.split('\n');
+  const out = [];
+  let binary = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const contentType = CONTENT_TYPE_LINE.exec(lines[i]);
+    if (contentType) binary = !JSON_MEDIA_TYPE.test(contentType[1].split(';')[0].trim());
+    if (lines[i].startsWith('#')) binary = false;
+    const generated = binary && EXAMPLE_ANCHOR.test(lines[i]) && GENERATED_EXAMPLE.test(lines[i + 2] ?? '');
+    if (binary && lines[i] === '`any`') {
+      i += lines[i + 1] === '' ? 1 : 0;
+    } else if (generated) {
+      // Past the opening fence (i + 4) to the closing one.
+      let end = i + 5;
+      while (end < lines.length && !lines[end].startsWith('```')) end += 1;
+      i = lines[end + 1] === '' ? end + 1 : end;
+    } else {
+      out.push(lines[i]);
+    }
+  }
+  return out.join('\n');
+}
+
 export function tidyOpenApi(markdown) {
-  let tidied = writeOutPrimitives(markdown);
+  let tidied = withoutJsonForBinary(writeOutPrimitives(markdown));
   for (const pattern of INHERITED) {
     tidied = tidied.replace(pattern, '');
   }

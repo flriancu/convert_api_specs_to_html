@@ -65,6 +65,11 @@ test("the converters' Markdown comes out tidied (tidy.mjs): a converter that wri
   assert.doesNotMatch(openapi, /^ {2}A note id\.$/m);
   assert.doesNotMatch(openapi, /Inherited servers|Global authentication|\*\*Required:\*\*/);
   assert.match(openapi, /\*\*Content type:\*\*\s+`application\/json` \(required\)/);
+  const png = await toMarkdown({
+    ...OPENAPI,
+    paths: { '/frame': { get: { responses: { 200: { description: 'The frame.', content: { 'image/png': { schema: { contentMediaType: 'image/png' } } } } } } } },
+  });
+  assert.match(png, /\*\*Content type:\*\*\s+`image\/png`\n\n(#|$)/m, 'a binary body has no JSON type or generated example');
   const asyncapi = await toMarkdown(ASYNCAPI);
   assert.match(asyncapi, /^## Messages\n\n(<a id="[^"]+"><\/a>\n\n)?### note\.created$/m);
   assert.match(asyncapi, /^## Schemas\n\n(<a id="[^"]+"><\/a>\n\n)?### Note$/m);

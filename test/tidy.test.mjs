@@ -62,3 +62,18 @@ test('an AsyncAPI document without messages or schemas is left alone', () => {
   const markdown = '# T\n\n## events\n\n### Receive\n';
   assert.equal(tidyAsyncApi(markdown, ['events']), markdown);
 });
+
+test('a body that is not JSON keeps its content type, without a JSON type or a generated JSON example', () => {
+  const binary = (type) => [
+    '##### 200 The frame.', '', `**Content type:**${NBSP}\`${type}\``, '', '`any`', '',
+    '<a id="scalar-example-5"></a>', '', '**Generated example:**', '', '```json', 'null', '```', '',
+    '##### 404 Missing.', '', `**Content type:**${NBSP}\`application/json\``, '', '`any`', '',
+    '<a id="scalar-example-6"></a>', '', '**Generated example:**', '', '```json', '{}', '```', '',
+  ].join('\n');
+  const png = tidyOpenApi(binary('image/png'));
+  assert.match(png, /`image\/png`\n\n##### 404 Missing\./, 'nothing JSON under image/png');
+  assert.match(png, /`application\/json`\n\n`any`\n\n<a id="scalar-example-6"><\/a>\n\n\*\*Generated example:\*\*/, 'JSON keeps both');
+  assert.match(tidyOpenApi(binary('application/problem+json')), /`application\/problem\+json`\n\n`any`/, 'a +json type is JSON');
+  const authored = tidyOpenApi(`**Content type:**${NBSP}\`image/png\`\n\n**Example:**\n\n\`\`\`\nPNG\n\`\`\`\n`);
+  assert.match(authored, /\*\*Example:\*\*/, "an author's example stays");
+});
