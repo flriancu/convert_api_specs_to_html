@@ -36,7 +36,9 @@ function shows(text, name) {
 
 /** Problems with a page, as sentences; empty when it has every property. */
 export function checkPage(html, { cssHref, names, operations }) {
-  const problems = FORBIDDEN.filter(([pattern]) => pattern.test(html)).map(([, problem]) => problem);
+  // Only tags can run or load anything: text that mentions style= or onclick= is prose.
+  const tags = html.match(/<[^>]*>/g) ?? [];
+  const problems = FORBIDDEN.filter(([pattern]) => tags.some((tag) => pattern.test(tag))).map(([, problem]) => problem);
   if (!html.includes(`<link rel="stylesheet" href="${cssHref}">`)) {
     problems.push(`does not link its stylesheet ${cssHref}`);
   }

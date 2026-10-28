@@ -18,12 +18,17 @@
  *   message and schema of the description is shown, each operation with its badge
  *   (check_page.mjs). A failed check exits 1.
  *
+ * The output folder keeps a list of the pages the last build wrote
+ * (.convert-api-specs-to-html.json); a page an earlier build wrote and this one does not is
+ * removed, so a renamed or deleted description leaves no stale page behind. Files the build
+ * did not write are never touched.
+ *
  * Usage (installed as a dependency, the command is convert-api-specs-to-html):
  *   node build.mjs <spec>... [-o <dir>]
  *
  *   node build.mjs api.openapi.yaml events.asyncapi.yaml -o out
  */
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,6 +41,7 @@ import { bundle, redoclyCli } from './redocly.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STYLESHEET = path.join(HERE, 'page.css');
 const STYLESHEET_NAME = 'page.css';
+const MANIFEST_NAME = '.convert-api-specs-to-html.json';
 
 const USAGE = 'usage: convert-api-specs-to-html <spec>... [-o <dir>]';
 
@@ -76,6 +82,26 @@ async function build(cli, spec, outDir) {
   return problems;
 }
 
+/** The pages the last build wrote into outDir, by its manifest; none when there is no readable one. */
+function pagesWrittenBefore(outDir) {
+  let pages = [];
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(outDir, MANIFEST_NAME), 'utf8'));
+    pages = Array.isArray(manifest.pages) ? manifest.pages.filter((p) => typeof p === 'string' && p === path.basename(p) && p.endsWith('.html')) : [];
+  } catch {
+    pages = [];
+  }
+  return pages;
+}
+
+/** Removes the pages an earlier build wrote that this one did not, and records this build's. */
+function replaceManifest(outDir, pages) {
+  for (const stale of pagesWrittenBefore(outDir).filter((p) => !pages.includes(p))) {
+    rmSync(path.join(outDir, stale), { force: true });
+  }
+  writeFileSync(path.join(outDir, MANIFEST_NAME), `${JSON.stringify({ pages }, null, 2)}\n`);
+}
+
 /** Page names that more than one of the specs would write, so one page would replace another. */
 function collidingPages(specs) {
   const counts = new Map();
@@ -100,6 +126,9 @@ async function main() {
   } else if (collidingPages(args.specs).length > 0) {
     console.error(`these pages would be written by more than one spec: ${collidingPages(args.specs).join(', ')}`);
     exitCode = 2;
+  } else if (existsSync(args.outDir) && !statSync(args.outDir).isDirectory()) {
+    console.error(`${args.outDir} is not a folder: -o names where the pages go`);
+    exitCode = 2;
   } else {
     mkdirSync(args.outDir, { recursive: true });
     copyFileSync(STYLESHEET, path.join(args.outDir, STYLESHEET_NAME));
@@ -113,6 +142,7 @@ async function main() {
         failed.push(spec);
       }
     }
+    replaceManifest(args.outDir, args.specs.map(pageName));
     if (failed.length > 0) {
       console.error(`failed: ${failed.join(', ')}`);
       exitCode = 1;

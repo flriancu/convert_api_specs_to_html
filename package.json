@@ -1,6 +1,6 @@
 {
   "name": "convert-api-specs-to-html",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Render OpenAPI and AsyncAPI descriptions as plain HTML pages (no scripts, no inline styles, nothing from other hosts), and check their $refs and examples",
   "license": "MIT",
   "repository": {
@@ -30,7 +30,7 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test",
-    "examples:lint": "redocly lint examples/notes.openapi.yaml examples/notes.asyncapi.yaml && node check_examples.mjs examples/notes.openapi.yaml examples/notes.asyncapi.yaml"
+    "examples:lint": "redocly lint --config redocly.yaml examples/notes.openapi.yaml examples/notes.asyncapi.yaml && node check_examples.mjs examples/notes.openapi.yaml examples/notes.asyncapi.yaml"
   },
   "dependencies": {
     "@redocly/cli": "2.71.1",
@@ -38,6 +38,7 @@
     "@scalar/openapi-to-markdown": "1.7.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "marked": "18.1.2"
+    "marked": "18.1.2",
+    "yaml": "2.9.1"
   }
 }

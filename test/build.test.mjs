@@ -48,9 +48,10 @@ test('raw HTML in a description never reaches the page as HTML; the text around 
     'paths: {}',
     '',
   ].join('\n'));
-  const result = run(spec, '-o', OUT);
+  const out = path.join(OUT, 'hostile');
+  const result = run(spec, '-o', out);
   assert.equal(result.status, 0, result.stderr);
-  const html = readFileSync(path.join(OUT, 'hostile.openapi.html'), 'utf8');
+  const html = readFileSync(path.join(out, 'hostile.openapi.html'), 'utf8');
   assert.doesNotMatch(html, /<meta http-equiv|<script|<img|onerror=/);
   assert.match(html, /Before the tags\./);
   assert.match(html, /After the tags\./);
@@ -112,4 +113,24 @@ test('prints usage and exits with 2 without descriptions', () => {
   const result = run();
   assert.equal(result.status, 2);
   assert.match(result.stdout, /^usage:/);
+});
+
+test("a page an earlier build wrote and this one does not is removed; other files are not", () => {
+  const out = path.join(OUT, 'stale');
+  mkdirSync(out, { recursive: true });
+  writeFileSync(path.join(out, 'mine.html'), 'not the build\'s');
+  assert.equal(run(path.join(EXAMPLES, 'notes.openapi.yaml'), path.join(EXAMPLES, 'notes.asyncapi.yaml'), '-o', out).status, 0);
+  assert.equal(run(path.join(EXAMPLES, 'notes.openapi.yaml'), '-o', out).status, 0);
+  assert.ok(existsSync(path.join(out, 'notes.openapi.html')));
+  assert.ok(!existsSync(path.join(out, 'notes.asyncapi.html')), 'the page of a description no longer built is gone');
+  assert.ok(existsSync(path.join(out, 'mine.html')), 'a file the build did not write stays');
+});
+
+test('-o naming a file is refused with a message, not a stack trace', () => {
+  const file = path.join(OUT, 'a-file');
+  writeFileSync(file, 'x');
+  const result = run(path.join(EXAMPLES, 'notes.openapi.yaml'), '-o', file);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /is not a folder/);
+  assert.doesNotMatch(result.stderr, /at .*build\.mjs/);
 });

@@ -35,6 +35,11 @@ for (const [name, [fragment, problem]] of Object.entries(BAD)) {
   });
 }
 
+test('prose that mentions what a tag must not carry is no problem', () => {
+  const prose = '<p>Never <code>style=&quot;x&quot;</code>, nor onclick= or src= in a page; a data: URL neither.</p>';
+  assert.deepEqual(checkPage(GOOD.replace('<p>Note</p>', `<p>Note</p>${prose}`), OPTIONS), []);
+});
+
 test('a missing stylesheet link is a problem', () => {
   const page = GOOD.replace('<link rel="stylesheet" href="page.css">', '');
   assert.deepEqual(checkPage(page, OPTIONS), ['does not link its stylesheet page.css']);

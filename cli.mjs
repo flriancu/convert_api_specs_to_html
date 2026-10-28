@@ -1,20 +1,25 @@
 /**
  * What the package's commands share.
  */
-import { realpathSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
  * Whether the module at moduleUrl is the script Node was asked to run, rather than imported.
- * npm installs a command as a symlink (Linux, macOS) or a shim (Windows), and Node resolves the
- * symlink for the module's URL but not for process.argv[1], so both are compared as real paths.
+ * npm installs a command as a symlink (Linux, macOS) or a shim (Windows), and the script's path
+ * can be spelled many ways (a symlink, another case, a \\?\ prefix on Windows), so the two are
+ * compared as files: the same device and file id.
  */
 export function runsAsCommand(moduleUrl) {
-  let script = null;
+  let same = false;
   try {
-    script = process.argv[1] === undefined ? null : realpathSync(process.argv[1]);
+    if (process.argv[1] !== undefined) {
+      const script = statSync(process.argv[1], { bigint: true });
+      const module = statSync(fileURLToPath(moduleUrl), { bigint: true });
+      same = script.dev === module.dev && script.ino === module.ino;
+    }
   } catch {
-    script = null;
+    same = false;
   }
-  return script !== null && script === realpathSync(fileURLToPath(moduleUrl));
+  return same;
 }

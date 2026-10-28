@@ -15,13 +15,16 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
 
 ## How it works
 
-1. The description's `$ref`s are checked to stay inside its folder (`check_refs.mjs`): only `#...`
-   pointers and relative paths to files in or under the folder, followed through every file they
-   reach. A `$ref` to a URL or out of the folder fails the build before anything resolves it, so
-   no URL is fetched and no outside file ends up in a page. Two specs that would write the same
-   page are refused too.
+1. The description's `$ref`s and `externalValue`s are checked to stay inside its folder
+   (`check_refs.mjs`): only `#...` pointers and relative paths to files in or under the folder,
+   followed through every file they reach, also through links, with names in their exact case
+   as Linux compares them. A reference to a URL or out of the folder fails the build before
+   anything resolves it, so no URL is fetched and no outside file ends up in a page. Each file
+   is parsed as YAML 1.2 and its references read from the parsed tree, so `"$ref"` is a
+   `$ref`; what loaders read differently (an alias as a key, a merge key `<<`, a key twice) is
+   refused rather than guessed. Two specs that would write the same page are refused too.
 2. [Redocly CLI](https://github.com/Redocly/redocly-cli) bundles the description into one document,
-   resolving `$ref`s to other files, with its telemetry off (`redocly.mjs`).
+   resolving `$ref`s to other files, with its telemetry and update check off (`redocly.mjs`).
 3. Scalar's converters, [`@scalar/openapi-to-markdown`](https://www.npmjs.com/package/@scalar/openapi-to-markdown)
    and [`@scalar/asyncapi-to-markdown`](https://www.npmjs.com/package/@scalar/asyncapi-to-markdown),
    write it as Markdown (`convert.mjs`). The OpenAPI converter upgrades the document before
@@ -39,7 +42,11 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    linked; every operation, channel, message and schema of the description is shown; and every
    operation has its badge. A failed check exits with 1 and names the problem, so a converter
    upgrade that drops content, or writes an operation's method in another form, fails the
-   build.
+   build. Prose that mentions `style=` or `onclick=` is text, not a problem.
+6. The output folder keeps a list of the pages the build wrote
+   (`.convert-api-specs-to-html.json`): a page an earlier build wrote and this one does not is
+   removed, so a renamed or deleted description leaves no stale page behind. Files the build did
+   not write are never touched.
 
 All dependencies are pinned exactly in `package.json`.
 
@@ -48,26 +55,37 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.3.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.4.0
 ```
 
 ```json
 "scripts": {
-  "lint": "check-api-spec-refs api.openapi.yaml events.asyncapi.yaml && redocly lint api.openapi.yaml events.asyncapi.yaml && check-api-spec-examples api.openapi.yaml events.asyncapi.yaml",
+  "lint": "check-api-spec-refs api.openapi.yaml events.asyncapi.yaml && redocly lint --config redocly.yaml api.openapi.yaml events.asyncapi.yaml && check-api-spec-examples api.openapi.yaml events.asyncapi.yaml",
   "docs": "convert-api-specs-to-html api.openapi.yaml events.asyncapi.yaml -o out/docs"
 }
 ```
 
-- `check-api-spec-refs` is the same `$ref` check on its own. Run it before a linter or anything
-  else that resolves `$ref`s: they fetch URLs and read outside files as they go.
+- `check-api-spec-refs` is the same reference check on its own. Run it before a linter or
+  anything else that resolves `$ref`s: they fetch URLs and read outside files as they go.
 - `check-api-spec-examples` checks every example against the schema it illustrates
   (`check_examples.mjs`): OpenAPI request bodies, responses, parameters and headers, with
-  references to `components/examples` resolved; AsyncAPI message examples against the message's
-  payload and headers; and the `examples` keyword of schemas. Linters leave AsyncAPI examples
-  unchecked. It checks `$ref`s first, bundles with Redocly CLI, and validates with
-  [Ajv](https://ajv.js.org/) as JSON Schema 2020-12 with format checks; payloads in another
-  schema format (Avro, RAML) are skipped. A mismatch exits with 1 and says where the example is
-  and what does not match.
+  references to `components/examples` resolved; AsyncAPI 2 and 3 message examples against the
+  message's payload and headers, with its traits merged as the document's version says; channel
+  parameter examples against their `enum`; and the `examples` and `default` of every schema,
+  inline and binding schemas included. Linters leave AsyncAPI examples unchecked. It also
+  reports bounds no value can meet (a minimum above its maximum) and a `$schema` in another
+  dialect. It checks references first, bundles with Redocly CLI, and validates with
+  [Ajv](https://ajv.js.org/) with format checks, as JSON Schema 2020-12 for OpenAPI 3.1 and
+  draft-07 for AsyncAPI. What it cannot check it counts and names on its summary line instead of
+  passing it quietly: payloads in another schema format (Avro, OpenAPI's), payloads that traits
+  and the message both define, examples for a message with no payload. A mismatch exits with 1
+  and says where the example is and what does not match.
+- Pass Redocly its configuration explicitly (`--config redocly.yaml`): without it, a missing or
+  renamed file makes Redocly fall back to its `recommended` rules, which only warn about what
+  `recommended-strict` refuses.
+- Patterns run on Node's regular expression engine, so a pattern in the specification that
+  backtracks badly makes the check slow on a long example; that is the author's own pattern, and
+  the CI job's time limit bounds it.
 
 Each command exits with 1 when it finds a problem and with 2 on a usage error.
 

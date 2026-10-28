@@ -82,13 +82,107 @@ test('AsyncAPI message examples are checked against their payload, including com
     },
   };
   assert.equal(examplesIn(doc).length, 2);
-  assert.deepEqual(checkExamples(doc).problems, ['#/components/messages/bad/examples/0/payload: /seq must be >= 1']);
+  const result = checkExamples(doc);
+  assert.deepEqual(result.problems, ['#/components/messages/bad/examples/0/payload: /seq must be >= 1']);
+  assert.deepEqual(result.skipped, ['#/components/messages/avro/examples/0/payload: its payload is in schema format application/vnd.apache.avro;version=1.9.0'],
+    'what cannot be checked is said, not passed quietly');
+});
+
+function asyncapi(major, components, channels = {}) {
+  return { asyncapi: `${major}.0.0`, info: { title: 'E', version: '1.0.0' }, channels, components };
+}
+
+test('a name that percent-decodes to another is checked against its own schema', () => {
+  const doc = asyncapi(3, { messages: { c: { payload: { type: 'integer' } }, '%63': { payload: { type: 'string' }, examples: [{ payload: 5 }] } } });
+  assert.deepEqual(checkExamples(doc).problems, ['#/components/messages/%63/examples/0/payload: (the example) must be string']);
+});
+
+test("a message's traits bring their examples and payload, merged as the version says", () => {
+  const traits = [{ examples: [{ payload: 'from the trait' }] }];
+  const v3 = asyncapi(3, { messages: { m: { payload: { type: 'integer' }, traits } } });
+  assert.deepEqual(checkExamples(v3).problems, ['#/components/messages/m/traits/0/examples/0/payload: (the example) must be integer']);
+  const own = asyncapi(3, { messages: { m: { payload: { type: 'integer' }, examples: [{ payload: 1 }], traits } } });
+  assert.deepEqual(checkExamples(own).problems, [], 'in 3.x a trait never overrides the message');
+  const v2 = asyncapi(2, { messages: { m: { payload: { type: 'integer' }, examples: [{ payload: 1 }], traits } } });
+  assert.deepEqual(checkExamples(v2).problems, ['#/components/messages/m/traits/0/examples/0/payload: (the example) must be integer'],
+    'in 2.x traits are merged over the message');
+});
+
+test('AsyncAPI 2 operations, parameters and bindings are checked too', () => {
+  const doc = asyncapi(2, {}, {
+    c: {
+      parameters: { p: { schema: { type: 'string', examples: [3] } } },
+      bindings: { ws: { query: { type: 'object', properties: { v: { type: 'string', default: 1 } } } } },
+      subscribe: { message: { oneOf: [{ payload: { type: 'integer' }, examples: [{ payload: 'x' }] }] } },
+    },
+  });
+  assert.deepEqual(checkExamples(doc).problems, [
+    '#/channels/c/subscribe/message/oneOf/0/examples/0/payload: (the example) must be integer',
+    '#/channels/c/parameters/p/schema/examples/0: (the example) must be string',
+    '#/channels/c/bindings/ws/query/properties/v/default: (the example) must be string',
+  ]);
+});
+
+test("an AsyncAPI 3 channel parameter's examples and default are among its enum", () => {
+  const doc = asyncapi(3, {}, { c: { address: '/{p}', parameters: { p: { enum: ['a', 'b'], examples: ['a', 'c'], default: 'd' } } } });
+  assert.deepEqual(checkExamples(doc).problems, [
+    '#/channels/c/parameters/p/examples/1: "c" is not one of its enum',
+    '#/channels/c/parameters/p/default: "d" is not one of its enum',
+  ]);
+});
+
+test('defaults are checked, and what no value satisfies or another dialect is reported', () => {
+  const doc = openapi({}, {
+    schemas: {
+      Default: { type: 'integer', default: 'ten' },
+      Range: { type: 'integer', minimum: 5, maximum: 1 },
+      Old: { $schema: 'http://json-schema.org/draft-04/schema#', type: 'string' },
+      Fine: { type: 'string', minLength: 1, maxLength: 1, default: 'x', $schema: 'https://json-schema.org/draft/2020-12/schema' },
+    },
+  });
+  assert.deepEqual(checkExamples(doc).problems, [
+    '#/components/schemas/Default/default: (the example) must be integer',
+    '#/components/schemas/Range: minimum 5 is above maximum 1: no value can satisfy it',
+    "#/components/schemas/Old/$schema: declares http://json-schema.org/draft-04/schema#; this document's schemas are checked as JSON Schema 2020-12",
+  ]);
+});
+
+test("AsyncAPI schemas are read as draft-07, the dialect AsyncAPI's schema format extends", () => {
+  const tuple = { type: 'array', items: [{ type: 'integer' }, { type: 'string' }] };
+  const doc = asyncapi(3, { messages: { m: { payload: tuple, examples: [{ payload: [1, 'a'] }, { payload: ['a', 1] }] } } });
+  assert.deepEqual(checkExamples(doc).problems, ['#/components/messages/m/examples/1/payload: /0 must be integer']);
+  const declared = asyncapi(3, { schemas: { S: { $schema: 'http://json-schema.org/draft-07/schema#', type: 'string' } } });
+  assert.deepEqual(checkExamples(declared).problems, []);
+});
+
+test('a payload reached through a $ref is judged by where it leads; a missing one is named', () => {
+  const doc = asyncapi(3, {
+    schemas: { Avro: { schemaFormat: 'application/vnd.apache.avro;version=1.9.0', schema: { type: 'record' } } },
+    messages: {
+      viaRef: { payload: { $ref: '#/components/schemas/Avro' }, examples: [{ payload: 'anything' }] },
+      none: { examples: [{ payload: 'anything' }] },
+    },
+  });
+  const { problems, skipped } = checkExamples(doc);
+  assert.deepEqual(problems, []);
+  assert.deepEqual(skipped, [
+    '#/components/messages/viaRef/examples/0/payload: its payload is in schema format application/vnd.apache.avro;version=1.9.0',
+    '#/components/messages/none/examples/0/payload: the message defines no payload',
+  ]);
+});
+
+test('a document whose $id the validator refuses is reported, not a crash', () => {
+  for (const id of [7, 'https://spec.invalid/document.json']) {
+    const doc = openapi({}, { schemas: { X: { $id: id, type: 'string' }, Y: { $id: 'https://spec.invalid/document.json' } } });
+    const { problems } = checkExamples({ ...doc, $id: typeof id === 'number' ? id : undefined });
+    assert.ok(problems.length > 0 && problems.every((p) => typeof p === 'string'), JSON.stringify(problems));
+  }
 });
 
 test('the command checks the examples of the example specifications', () => {
   const result = spawnSync(process.execPath, [path.join(ROOT, 'check_examples.mjs'), path.join(EXAMPLES, 'notes.openapi.yaml'), path.join(EXAMPLES, 'notes.asyncapi.yaml')], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /notes\.openapi\.yaml: every example matches its schema \(4 checked\)/);
+  assert.match(result.stdout, /notes\.openapi\.yaml: every example matches its schema \(5 checked\)/);
   assert.match(result.stdout, /notes\.asyncapi\.yaml: every example matches its schema \(1 checked\)/);
 });
 

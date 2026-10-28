@@ -1,5 +1,6 @@
 /**
- * Redocly CLI, as the commands run it: found wherever npm installed it, with its telemetry off.
+ * Redocly CLI, as the commands run it: found wherever npm installed it, with its telemetry and
+ * update check off.
  */
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -23,7 +24,8 @@ export function runRedocly(cli, args) {
   return spawnSync(process.execPath, [cli, ...args], {
     stdio: ['inherit', 'inherit', 'pipe'],
     encoding: 'utf8',
-    env: { ...process.env, REDOCLY_TELEMETRY: 'off' },
+    // No telemetry, and no update check: a build asks no other host anything.
+    env: { ...process.env, REDOCLY_TELEMETRY: 'off', REDOCLY_SUPPRESS_UPDATE_NOTICE: 'true' },
   });
 }
 
