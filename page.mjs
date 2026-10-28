@@ -41,6 +41,9 @@ const FACT_ITEM = /^\*\*[^*`\n]+:\*\*[ \u00a0]+[^\n]+$/;
 // The converters' labels before an example's code block: "Example:", "Generated example:",
 // "payload:", "Generated payload example:", and a named one, "Example: version".
 const EXAMPLE_LABEL = /^([A-Za-z ]*example|payload)(?::\s*(\S.*?))?:?$/i;
+// A converter generates an example from the schema's shape, with placeholder values ("" for
+// any string), so its summary says it is no example of valid data.
+const GENERATED_NOTE = 'shape only; its values are placeholders';
 // A heading's id part: at most this many words; a response heading starts with its status code.
 const SLUG_WORDS = 6;
 const STATUS_HEADING = /^([1-5])([0-9X]{2})(\s|$)|^default(\s|$)/i;
@@ -157,7 +160,7 @@ function exampleLabel(token) {
   } else if (match) {
     label = match[1].toLowerCase() === 'payload' ? 'Example payload' : match[1];
   }
-  return label;
+  return label !== null && /^generated/i.test(label) ? `${label} (${GENERATED_NOTE})` : label;
 }
 
 /** Markdown text as a summary's plain text: no code or bold marks. */

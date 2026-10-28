@@ -67,7 +67,7 @@ test("the converters' lists of facts are marked wherever they are; other lists a
 
 test('examples fold behind their label; other bold paragraphs and code blocks do not', () => {
   const html = renderPage('# T\n\n**Generated payload example:**\n\n```json\n{"a": 1}\n```\n\n**Note:**\n\n```\nplain\n```', CSS);
-  assert.match(html, /<details class="example">\n<summary>Generated payload example<\/summary>\n<pre><code class="language-json">/);
+  assert.match(html, /<details class="example">\n<summary>Generated payload example \(shape only; its values are placeholders\)<\/summary>\n<pre><code class="language-json">/);
   assert.equal((html.match(/<details/g) ?? []).length, 1);
   assert.match(html, /<p><strong>Note:<\/strong><\/p>/);
   const payload = renderPage('# T\n\n**payload:**\n\n```json\n{}\n```', CSS);

@@ -53,7 +53,9 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    operation's method shows as a badge beside its path (an AsyncAPI operation's action as SEND or
    RECEIVE), each tag lists its operations, and a response's status shows as a green dot for a
    success and a red one for an error, next to its code. Examples fold until asked for, behind
-   their name or description; they still print.
+   their name or description; they still print. An example a converter generates from the
+   schema says it shows the shape only: its values are placeholders, such as `""` for any
+   string, not valid data.
 
    Every part and every field of a parameter or schema list can be linked to: a "#" after it,
    shown on hover and keyboard focus, links to its id. A heading's id is the converter's anchor
@@ -86,7 +88,7 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.3
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.4
 ```
 
 ```json
