@@ -29,6 +29,17 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    and [`@scalar/asyncapi-to-markdown`](https://www.npmjs.com/package/@scalar/asyncapi-to-markdown),
    write it as Markdown (`convert.mjs`). The OpenAPI converter upgrades the document before
    rendering and prints the upgraded version; the page shows the version the description declares.
+   The Markdown is then tidied (`tidy.mjs`):
+   - a field whose type is a named primitive schema shows its type and a link to the schema
+     ("`string`, pattern: `^seat[1-9]$` (SeatId)"), and the schema's description is said once,
+     at the schema, when the field has its own;
+   - lines saying an operation uses the document's servers and authentication are dropped, as
+     those are documented once at the top;
+   - a request body's "Required" line joins its content type: "(required)" or "(optional)";
+   - an AsyncAPI document's messages and schemas are grouped under "Messages" and "Schemas".
+
+   The AsyncAPI converter only links named primitive schemas in its linked mode, which leaves
+   out the generated examples, so an AsyncAPI page writes their type in place, without the link.
 4. [marked](https://github.com/markedjs/marked) turns the Markdown into the page (`page.mjs`).
    Descriptions come from whoever wrote the specification, so raw HTML in them is shown as text;
    only the converters' id-only anchors pass. Links keep `http`, `https`, `mailto` and `#`
@@ -36,7 +47,22 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    heading from level 2 down opens a section: level-2 parts are bands, and each operation,
    channel, message and schema is a card whose heading stays at its top while it scrolls. An
    operation's method shows as a badge beside its path (an AsyncAPI operation's action as SEND or
-   RECEIVE), and examples fold until asked for; they still print.
+   RECEIVE), each tag lists its operations, and a response's status shows as a green dot for a
+   success and a red one for an error, next to its code. Examples fold until asked for, behind
+   their name or description; they still print.
+
+   Every part and every field of a parameter or schema list can be linked to: a "#" after it,
+   shown on hover and keyboard focus, links to its id. A heading's id is the converter's anchor
+   or its parent's id and its own first words (`scalar-operation-put-operator--responses--200`),
+   a field's its part's id and its name (`scalar-schema-carsetupmismatch--seatid`), so a link
+   still works when other parts are added.
+
+   The page opens with its contents, built from its headings in place of the converter's list:
+   the parts, the operations grouped under their first tag, and a part of more than twelve
+   entries (the schemas, the messages) folded. On a screen 1200 pixels wide or more the contents
+   are a column beside the page, which stays in view while the page scrolls; on a narrower one
+   they fold behind a "Contents" button at the top. The column needs `::details-content`
+   (Baseline 2025); an older browser shows the button instead.
 5. Each page is checked (`check_page.mjs`): no scripts, `<style>`, style attributes, event
    handlers, `data:`/`javascript:` URLs, `<meta http-equiv>`, forms or frames; the stylesheet is
    linked; every operation, channel, message and schema of the description is shown; and every
@@ -55,7 +81,7 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.5.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.0
 ```
 
 ```json

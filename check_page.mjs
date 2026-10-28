@@ -47,7 +47,7 @@ export function checkPage(html, { cssHref, names, operations }) {
   if (missing.length > 0) {
     problems.push(`does not show ${missing.length} of ${names.length} names from the specification: ${missing.slice(0, 10).join(', ')}`);
   }
-  const badges = (html.match(/<span class="method method-[a-z]+">/g) ?? []).length;
+  const badges = (html.match(/<li class="endpoint"><span class="method method-[a-z]+">/g) ?? []).length;
   if (operations !== undefined && badges !== operations) {
     problems.push(`shows ${badges} operation badges for the specification's ${operations} operations`);
   }

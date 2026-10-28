@@ -46,6 +46,30 @@ test('the page shows the OpenAPI version the description declares, not the upgra
   assert.doesNotMatch(markdown, /OpenAPI Version:\*\*\s+`3\.2/);
 });
 
+test("the converters' Markdown comes out tidied (tidy.mjs): a converter that writes it differently fails here", async () => {
+  const openapi = await toMarkdown({
+    ...OPENAPI,
+    servers: [{ url: 'http://localhost:8080' }],
+    paths: {
+      '/notes/{id}': {
+        put: {
+          parameters: [{ name: 'id', in: 'path', required: true, description: 'Which note.', schema: { $ref: '#/components/schemas/NoteId' } }],
+          requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Note' } } } },
+          responses: { 204: { description: 'Stored.' } },
+        },
+      },
+    },
+    components: { schemas: { Note: { type: 'object' }, NoteId: { type: 'string', pattern: '^n-[0-9]+$', description: 'A note id.' } } },
+  });
+  assert.match(openapi, /- \*\*`id` \(required\)\*\*: `string`, pattern: `\^n-\[0-9\]\+\$` \(\[NoteId\]\(#scalar-schema-noteid\)\)\n\n {2}Which note\.\n/);
+  assert.doesNotMatch(openapi, /^ {2}A note id\.$/m);
+  assert.doesNotMatch(openapi, /Inherited servers|Global authentication|\*\*Required:\*\*/);
+  assert.match(openapi, /\*\*Content type:\*\*\s+`application\/json` \(required\)/);
+  const asyncapi = await toMarkdown(ASYNCAPI);
+  assert.match(asyncapi, /^## Messages\n\n(<a id="[^"]+"><\/a>\n\n)?### note\.created$/m);
+  assert.match(asyncapi, /^## Schemas\n\n(<a id="[^"]+"><\/a>\n\n)?### Note$/m);
+});
+
 test('both converters show every expected name', async () => {
   for (const doc of [OPENAPI, ASYNCAPI]) {
     const markdown = await toMarkdown(doc);

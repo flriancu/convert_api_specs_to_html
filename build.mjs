@@ -8,12 +8,14 @@
  *   elsewhere (check_refs.mjs);
  * - Redocly CLI bundles the description into one document, resolving $refs to other files
  *   (redocly.mjs), with its telemetry off;
- * - Scalar's converters write it as Markdown, OpenAPI and AsyncAPI alike (convert.mjs);
+ * - Scalar's converters write it as Markdown, OpenAPI and AsyncAPI alike, which is then tidied
+ *   (convert.mjs, tidy.mjs);
  * - the Markdown becomes a page with no scripts, no inline styles and no data: URLs, raw HTML
  *   from the description shown as text (page.mjs), so it reads where a strict
  *   Content-Security-Policy is applied, such as Jenkins' archived artifacts;
  * - each heading's part of the page is a section the stylesheet draws as a card, with the
- *   operation's method as a badge and examples folded (page.mjs);
+ *   operation's method as a badge and examples folded; every part and field can be linked to,
+ *   and the page opens with its contents (page.mjs, contents.mjs);
  * - the page is checked for those properties and for completeness: every operation, channel,
  *   message and schema of the description is shown, each operation with its badge
  *   (check_page.mjs). A failed check exits 1.

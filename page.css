@@ -1,7 +1,9 @@
 /* The pages build.mjs writes (page.mjs). No external resources: system fonts only.
-   Each part of a page is a section (page.mjs): level-2 parts are bands, each operation, channel,
-   message and schema (level 3) is a card whose heading stays at its top while it scrolls, and
-   examples fold until asked for. */
+   A page is its title and introduction (header), its contents (nav), and its parts (main). The
+   contents are a column beside the parts on a wide screen and fold behind "Contents" on a
+   narrow one. Each part is a section (page.mjs): level-2 parts are bands, each operation,
+   channel, message and schema (level 3) is a card whose heading stays at its top while it
+   scrolls, and examples fold until asked for. */
 
 :root {
   color-scheme: light dark;
@@ -52,12 +54,14 @@ body {
   font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-main {
+header, nav.contents, main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 0 16px;
   overflow-wrap: anywhere;
 }
+nav.contents { padding-top: 16px; }
+main { padding-bottom: 64px; }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.6em 0 0.5em; }
 h1 { font-size: 2em; margin-top: 0.3em; padding-bottom: 0.3em; border-bottom: 1px solid var(--line); }
@@ -158,12 +162,13 @@ section.s4 > h4 {
   color: var(--muted);
 }
 
-/* In an AsyncAPI page, level 4 is a message: a heading, not a label. */
-.asyncapi section.s4 {
+/* In an AsyncAPI page, a level-4 part with parts of its own is a message under its operation:
+   a heading, not a label. */
+.asyncapi section.s4:has(> section.s5) {
   padding-top: 0.8em;
   border-top: 1px dashed var(--card-line);
 }
-.asyncapi section.s4 > h4 {
+.asyncapi section.s4:has(> section.s5) > h4 {
   font-size: 1.1em;
   letter-spacing: 0;
   text-transform: none;
@@ -196,12 +201,81 @@ details.example > pre { margin-top: 0.4em; }
 
 summary:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
 
-/* A link to a part outlines it. */
+/* A link to a part outlines it; a link to a field marks the field. Inside a card, the target
+   stays clear of the card's sticky heading. */
 :target { scroll-margin-top: 0.5em; }
+section.s3 :target { scroll-margin-top: 4em; }
 section.s3:target { outline: 3px solid var(--link); outline-offset: 2px; }
+li:target { background: var(--band); outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- a response's status: a dot before its code, green for success, red for an error ---- */
+section.response-success > :first-child::before,
+section.response-error > :first-child::before,
+section.response-other > :first-child::before { content: "\25CF\00A0"; }
+section.response-success > :first-child::before { color: var(--get); }
+section.response-error > :first-child::before { color: var(--delete); }
+section.response-other > :first-child::before { color: var(--muted); }
+
+/* ---- a tag's operations ---- */
+ul.operations { padding: 0; list-style: none; }
+ul.operations .method { min-width: 4.2em; margin-right: 0.3em; }
+
+/* ---- contents ---- */
+nav.contents { font-size: 0.95em; }
+/* A badge keeps its column, and a long heading wraps beside it. */
+nav.contents li > a { display: inline-flex; align-items: baseline; gap: 0.3em; }
+nav.contents summary { cursor: pointer; }
+nav.contents > details > summary {
+  display: inline-block;
+  padding: 0.3em 0.9em;
+  font-weight: 600;
+  background: var(--band);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+nav.contents ul { margin: 0.2em 0; padding-left: 1em; list-style: none; }
+nav.contents > details > ul { padding-left: 0; }
+nav.contents li + li { margin-top: 0.1em; }
+nav.contents .group { margin-top: 0.4em; font-weight: 600; }
+nav.contents .group li { font-weight: 400; }
+nav.contents .method { flex: none; min-width: 4.6em; font-size: 0.7em; }
+/* A long part's entries, folded under its name behind their count. */
+nav.contents li > details { margin-left: 1em; }
+nav.contents li > details > summary { font-size: 0.9em; color: var(--muted); }
+nav.contents li > details > ul { padding-left: 0; }
+
+/* Wide screens: the contents are a column of their own beside the page, always unfolded
+   (::details-content, Baseline 2025; an older browser shows the "Contents" fold instead). */
+@media (min-width: 1200px) {
+  body {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1100px);
+    grid-template-areas: "contents header" "contents main";
+    grid-template-rows: auto 1fr;
+    justify-content: center;
+    column-gap: 16px;
+  }
+  header { grid-area: header; margin: 0; max-width: none; padding-top: 24px; }
+  main { grid-area: main; margin: 0; max-width: none; }
+  nav.contents {
+    grid-area: contents;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    margin: 0;
+    padding: 24px 12px 24px 16px;
+    overflow-y: auto;
+    border-right: 1px solid var(--line);
+    box-sizing: border-box;
+  }
+  nav.contents > details > summary { display: none; }
+  nav.contents > details::details-content { content-visibility: visible; display: block; }
+}
 
 @media print {
-  main { max-width: none; padding: 0; }
+  main, header { max-width: none; padding: 0; }
+  nav.contents { display: none; }
   pre, table { break-inside: avoid; }
   a { color: inherit; }
   section.s3 { break-inside: auto; background: none; }
@@ -211,3 +285,20 @@ section.s3:target { outline: 3px solid var(--link); outline-offset: 2px; }
   /* Folded examples still print (::details-content, Chromium 131 and later). */
   details::details-content { content-visibility: visible; display: block; }
 }
+
+/* ---- the "#" after a heading or a field: its link to itself ---- */
+a.self-mark {
+  margin-left: 0.25em;
+  padding: 0 0.2em;
+  font-weight: 400;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0;
+}
+h2:hover > a.self-mark, h3:hover > a.self-mark, h4:hover > a.self-mark, h5:hover > a.self-mark,
+h6:hover > a.self-mark, li:hover > a.self-mark, li:hover > p:first-child > a.self-mark,
+a.self-mark:focus-visible, li:target > a.self-mark, li:target > p:first-child > a.self-mark { opacity: 1; }
+/* Without hover (touch screens), the mark stays faintly visible. */
+@media (hover: none) { a.self-mark { opacity: 0.5; } }
+
+@media print { a.self-mark { display: none; } }

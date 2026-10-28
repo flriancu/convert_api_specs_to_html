@@ -1,11 +1,18 @@
 /**
- * A bundled OpenAPI or AsyncAPI document as Markdown, written by Scalar's converters, and the
- * names every complete rendering of it must mention.
+ * A bundled OpenAPI or AsyncAPI document as Markdown, written by Scalar's converters and tidied
+ * (tidy.mjs), and the names every complete rendering of it must mention.
  */
 import { createMarkdownFromAsyncApi } from '@scalar/asyncapi-to-markdown';
 import { createMarkdownFromOpenApi } from '@scalar/openapi-to-markdown';
 
+import { tidyAsyncApi, tidyOpenApi } from './tidy.mjs';
+
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
+
+// Named primitive schemas (an id's pattern, an enumeration) are linked like the others, so a
+// field shows which schema it uses. The AsyncAPI converter only links them in its linked mode,
+// which leaves out the generated examples, so it keeps writing them in place.
+const OPENAPI_OPTIONS = { schemaReferences: { inlinePrimitives: false } };
 
 // The OpenAPI converter upgrades the document to the newest OpenAPI version before rendering it
 // and prints that version; the page shows the version the description declares.
@@ -27,13 +34,13 @@ export function kindOf(doc) {
 export async function toMarkdown(doc) {
   let markdown = '';
   if (kindOf(doc) === 'openapi') {
-    const converted = await createMarkdownFromOpenApi(doc);
+    const converted = await createMarkdownFromOpenApi(doc, OPENAPI_OPTIONS);
     if (!OPENAPI_VERSION_LINE.test(converted)) {
       throw new Error('the OpenAPI converter no longer prints the "OpenAPI Version" line that convert.mjs corrects');
     }
-    markdown = converted.replace(OPENAPI_VERSION_LINE, `$1${doc.openapi}$2`);
+    markdown = tidyOpenApi(converted.replace(OPENAPI_VERSION_LINE, `$1${doc.openapi}$2`));
   } else {
-    markdown = await createMarkdownFromAsyncApi(doc);
+    markdown = tidyAsyncApi(await createMarkdownFromAsyncApi(doc), Object.keys(doc.channels ?? {}));
   }
   return markdown;
 }

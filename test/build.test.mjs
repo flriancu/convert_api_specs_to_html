@@ -57,19 +57,21 @@ test('raw HTML in a description never reaches the page as HTML; the text around 
   assert.match(html, /After the tags\./);
 });
 
-test('the contents links point at anchors that exist', () => {
-  const html = readFileSync(path.join(OUT, 'notes.asyncapi.html'), 'utf8');
-  const targets = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(targets.length > 0, 'the page has contents links');
-  for (const target of targets) {
-    assert.match(html, new RegExp(`<(a|section class="s[2-6]") id="${target}">`), `anchor ${target}`);
+test('every link within a page points at an id that exists, and every id is used once', () => {
+  for (const name of ['notes.openapi.html', 'notes.asyncapi.html']) {
+    const html = readFileSync(path.join(OUT, name), 'utf8');
+    const targets = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
+    const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(targets.length > 0, `${name} has links within it`);
+    assert.deepEqual(targets.filter((t) => !ids.includes(t)), [], name);
+    assert.equal(new Set(ids).size, ids.length, name);
   }
 });
 
 test('every operation of the examples has its badge, and their sections balance', () => {
   for (const [name, badges] of [['notes.openapi.html', 2], ['notes.asyncapi.html', 1]]) {
     const html = readFileSync(path.join(OUT, name), 'utf8');
-    assert.equal((html.match(/<span class="method method-[a-z]+">/g) ?? []).length, badges, name);
+    assert.equal((html.match(/<li class="endpoint"><span class="method method-[a-z]+">/g) ?? []).length, badges, name);
     assert.equal((html.match(/<section /g) ?? []).length, (html.match(/<\/section>/g) ?? []).length, name);
   }
 });

@@ -46,7 +46,7 @@ test('a missing stylesheet link is a problem', () => {
 });
 
 test('a page whose operations lack their badges is a problem', () => {
-  const page = GOOD.replace('</body>', '<span class="method method-get">GET</span></body>');
+  const page = GOOD.replace('</body>', '<ul><li class="endpoint"><span class="method method-get">GET</span></li></ul></body>');
   assert.deepEqual(checkPage(page, { ...OPTIONS, operations: 1 }), []);
   assert.deepEqual(checkPage(page, { ...OPTIONS, operations: 2 }), ['shows 1 operation badges for the specification\'s 2 operations']);
 });
