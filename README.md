@@ -55,7 +55,7 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.4.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.5.0
 ```
 
 ```json
@@ -83,9 +83,13 @@ npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.4.0
 - Pass Redocly its configuration explicitly (`--config redocly.yaml`): without it, a missing or
   renamed file makes Redocly fall back to its `recommended` rules, which only warn about what
   `recommended-strict` refuses.
-- Patterns run on Node's regular expression engine, so a pattern in the specification that
-  backtracks badly makes the check slow on a long example; that is the author's own pattern, and
-  the CI job's time limit bounds it.
+- Schema patterns run on RE2 ([re2js](https://github.com/le0pard/re2js), a JavaScript port of
+  Google's linear-time engine), through Ajv's `code.regExp` option as
+  [Ajv's security notes](https://ajv.js.org/security.html) recommend: a pattern that backtracks
+  badly, such as `^(a+)+$`, cannot make the check slow, however long the example. RE2 has no
+  lookarounds or backreferences; an example whose schema needs them is named as not checked
+  rather than run on a backtracking engine. RE2 also reads `\s` and Unicode classes slightly
+  differently from JavaScript (`linear_regexp.mjs`).
 
 Each command exits with 1 when it finds a problem and with 2 on a usage error.
 

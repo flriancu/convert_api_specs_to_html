@@ -171,6 +171,21 @@ test('a payload reached through a $ref is judged by where it leads; a missing on
   ]);
 });
 
+test('a pattern that backtracks badly does not slow the check; one needing backtracking is named', () => {
+  const doc = openapi({}, {
+    schemas: {
+      Slow: { type: 'string', pattern: '^(a+)+$', examples: [`${'a'.repeat(40)}!`] },
+      Lookahead: { type: 'string', pattern: '^(?=a)a+$', examples: ['aa'] },
+    },
+  });
+  const started = performance.now();
+  const { problems, skipped } = checkExamples(doc);
+  assert.ok(performance.now() - started < 2000, 'a backtracking engine would take hours at 40 characters');
+  assert.deepEqual(problems, ['#/components/schemas/Slow/examples/0: (the example) must match pattern "^(a+)+$"']);
+  assert.equal(skipped.length, 1);
+  assert.match(skipped[0], /^#\/components\/schemas\/Lookahead\/examples\/0: its pattern "\^\(\?=a\)a\+\$" needs a backtracking engine/);
+});
+
 test('a document whose $id the validator refuses is reported, not a crash', () => {
   for (const id of [7, 'https://spec.invalid/document.json']) {
     const doc = openapi({}, { schemas: { X: { $id: id, type: 'string' }, Y: { $id: 'https://spec.invalid/document.json' } } });

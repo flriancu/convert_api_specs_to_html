@@ -1,6 +1,6 @@
 {
   "name": "convert-api-specs-to-html",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Render OpenAPI and AsyncAPI descriptions as plain HTML pages (no scripts, no inline styles, nothing from other hosts), and check their $refs and examples",
   "license": "MIT",
   "repository": {
@@ -20,6 +20,7 @@
     "check_refs.mjs",
     "cli.mjs",
     "convert.mjs",
+    "linear_regexp.mjs",
     "page.css",
     "page.mjs",
     "redocly.mjs"
@@ -39,6 +40,7 @@
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "marked": "18.1.2",
+    "re2js": "1.3.3",
     "yaml": "2.9.1"
   }
 }

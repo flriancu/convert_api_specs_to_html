@@ -14,6 +14,10 @@
  * instead of passing quietly: payloads in another schema format (Avro, OpenAPI), and payloads
  * that traits and the message both define.
  *
+ * Patterns run on RE2, a linear-time engine (linear_regexp.mjs), so a pattern that backtracks
+ * badly cannot make the check slow; one that needs lookarounds or backreferences, which RE2
+ * lacks, is named as not checked.
+ *
  * The description's $refs are checked first (check_refs.mjs), then Redocly CLI bundles it into
  * one document (redocly.mjs). Schemas are validated with format checks in the dialect the
  * document's own schemas use: JSON Schema 2020-12 for OpenAPI 3.1, and draft-07 for AsyncAPI,
@@ -28,6 +32,7 @@ import addFormats from 'ajv-formats';
 
 import { checkRefs } from './check_refs.mjs';
 import { runsAsCommand } from './cli.mjs';
+import { linearRegExp, NeedsBacktracking } from './linear_regexp.mjs';
 import { bundle, redoclyCli } from './redocly.mjs';
 
 const DOC_ID = 'https://spec.invalid/document.json';
@@ -375,7 +380,7 @@ export function examplesIn(doc) {
  */
 export function checkExamples(doc) {
   const dialect = isObject(doc) && typeof doc.asyncapi === 'string' ? DIALECTS.asyncapi : DIALECTS.openapi;
-  const ajv = new dialect.Validator({ strict: false, validateSchema: false, allErrors: false });
+  const ajv = new dialect.Validator({ strict: false, validateSchema: false, allErrors: false, code: { regExp: linearRegExp } });
   addFormats(ajv);
   const problems = [];
   const skipped = [];
@@ -402,7 +407,11 @@ export function checkExamples(doc) {
       try {
         validate = ajv.compile({ $ref: `${DOC_ID}${pointer(item.schema)}` });
       } catch (error) {
-        problems.push(`${item.where}: its schema cannot be compiled: ${error.message}`);
+        if (error instanceof NeedsBacktracking) {
+          skipped.push(`${item.where}: ${error.message}`);
+        } else {
+          problems.push(`${item.where}: its schema cannot be compiled: ${error.message}`);
+        }
       }
       if (validate !== null && !validate(item.value)) {
         const [first] = validate.errors;
