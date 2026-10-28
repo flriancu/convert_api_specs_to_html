@@ -45,9 +45,11 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    shown as text; only the converters' id-only anchors pass. Text in `<...>` outside code is
    HTML to Markdown ([CommonMark 6.6](https://spec.commonmark.org/0.31.2/#raw-html)), and the
    converters drop most of it, so write placeholders such as `<id>` in backticks. Links keep
-   `http`, `https`, `mailto` and `#` targets; images become links. So a reader sees where each part starts and ends, every
-   heading from level 2 down opens a section: level-2 parts are bands, and each operation,
-   channel, message and schema is a card whose heading stays at its top while it scrolls. An
+   `http`, `https`, `mailto` and `#` targets; images become links. A server's description
+   is shown as plain text: the OpenAPI converter writes it without reading its Markdown. So a
+   reader sees where each part starts and ends, every heading from level 2 down opens a
+   section: level-2 parts are bands, and each operation, channel, message and schema is a
+   card whose heading stays at its top while it scrolls. An
    operation's method shows as a badge beside its path (an AsyncAPI operation's action as SEND or
    RECEIVE), each tag lists its operations, and a response's status shows as a green dot for a
    success and a red one for an error, next to its code. Examples fold until asked for, behind
