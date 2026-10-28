@@ -175,6 +175,21 @@ test("the contents replace the converters' list: parts, operations under their t
   assert.equal((contents.match(/>Schemas</g) ?? []).length, 1, "a folded part's name is shown once");
 });
 
+test("the introduction the AsyncAPI converter writes after its contents list stays, in the header", () => {
+  const asyncapi = [
+    '# Events', '', '## Contents', '', '- [Servers](#servers)', '', '**Messages**', '', '- [reset](#reset)', '',
+    '* **version:** `1.0.0`', '', 'Facts the service publishes.', '', '**Connecting.** Add `apiVersion`.', '',
+    '| Code | Meaning |', '| ---- | ------- |', '| 4408 | Behind |', '',
+    '<a id="servers"></a>', '', '## Servers', '', 'Local.',
+  ].join('\n');
+  const html = renderPage(asyncapi, CSS);
+  const header = html.split('<header>\n')[1].split('</header>')[0];
+  assert.doesNotMatch(html, /href="#reset"|<p><strong>Messages<\/strong><\/p>/, "the converter's list and its group labels are left out");
+  for (const kept of ['<code>1.0.0</code>', '<p>Facts the service publishes.</p>', '<strong>Connecting.</strong>', '<td>4408</td>']) {
+    assert.ok(header.includes(kept), `the header keeps ${kept}`);
+  }
+});
+
 test('each tag lists its operations, with their badges and paths', () => {
   const html = renderPage(OPENAPI, CSS);
   assert.match(html, /<p>Notes\.<\/p>\n<ul class="operations">\n<li><a href="#get-notes"><span class="method method-get">GET<\/span> <code>\/notes<\/code> List notes<\/a><\/li>\n<\/ul>\n<\/section>/);

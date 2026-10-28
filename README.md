@@ -41,9 +41,11 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    The AsyncAPI converter only links named primitive schemas in its linked mode, which leaves
    out the generated examples, so an AsyncAPI page writes their type in place, without the link.
 4. [marked](https://github.com/markedjs/marked) turns the Markdown into the page (`page.mjs`).
-   Descriptions come from whoever wrote the specification, so raw HTML in them is shown as text;
-   only the converters' id-only anchors pass. Links keep `http`, `https`, `mailto` and `#`
-   targets; images become links. So a reader sees where each part starts and ends, every
+   Descriptions come from whoever wrote the specification, so raw HTML that reaches the page is
+   shown as text; only the converters' id-only anchors pass. Text in `<...>` outside code is
+   HTML to Markdown ([CommonMark 6.6](https://spec.commonmark.org/0.31.2/#raw-html)), and the
+   converters drop most of it, so write placeholders such as `<id>` in backticks. Links keep
+   `http`, `https`, `mailto` and `#` targets; images become links. So a reader sees where each part starts and ends, every
    heading from level 2 down opens a section: level-2 parts are bands, and each operation,
    channel, message and schema is a card whose heading stays at its top while it scrolls. An
    operation's method shows as a badge beside its path (an AsyncAPI operation's action as SEND or
@@ -65,8 +67,9 @@ Each description `<name>.<ext>` becomes `<dir>/<name>.html` (default `out/`); th
    (Baseline 2025); an older browser shows the button instead.
 5. Each page is checked (`check_page.mjs`): no scripts, `<style>`, style attributes, event
    handlers, `data:`/`javascript:` URLs, `<meta http-equiv>`, forms or frames; the stylesheet is
-   linked; every operation, channel, message and schema of the description is shown; and every
-   operation has its badge. A failed check exits with 1 and names the problem, so a converter
+   linked; every operation, channel, message and schema of the description is shown, and every
+   paragraph, list item and table cell of its descriptions; and every operation has its badge.
+   A failed check exits with 1 and names the problem, so a converter
    upgrade that drops content, or writes an operation's method in another form, fails the
    build. Prose that mentions `style=` or `onclick=` is text, not a problem.
 6. The output folder keeps a list of the pages the build wrote
@@ -81,7 +84,7 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.2
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.3
 ```
 
 ```json

@@ -56,6 +56,26 @@ test('a name from the specification that the page does not show is a problem', (
   assert.deepEqual(checkPage(page, OPTIONS), ['does not show 1 of 2 names from the specification: Note']);
 });
 
+test('a paragraph, list item or table cell of a description that the page does not show is a problem', () => {
+  const page = GOOD.replace('<p>Note</p>', '<p>Note</p><p>Close with\n<code>4408</code>.</p><ul><li>One</li></ul><table><tr><td>Behind</td></tr></table>');
+  assert.deepEqual(checkPage(page, { ...OPTIONS, descriptions: ['Close with `4408`.\n\n- One\n\n| Meaning |\n| - |\n| Behind |'] }), [
+    'loses 1 of 4 paragraphs, list items and table cells of the specification\'s descriptions: "Meaning"',
+  ]);
+  assert.deepEqual(checkPage(page, { ...OPTIONS, descriptions: ['Close with `4408`.', '- One\n- Two'] }), [
+    'loses 1 of 3 paragraphs, list items and table cells of the specification\'s descriptions: "Two"',
+  ]);
+});
+
+test("a description's raw HTML and link targets count as the page shows them: as text, and as the link's text", () => {
+  const page = GOOD.replace('<p>Note</p>', '<p>Note</p><p>Use &quot;node:&lt;id&gt;&quot;; see <a href="#x">the rules</a>.</p>');
+  assert.deepEqual(checkPage(page, { ...OPTIONS, descriptions: ['Use "node:<id>"; see [the rules](#x).'] }), []);
+  const dropped = page.replace('&lt;id&gt;', '');
+  assert.deepEqual(checkPage(dropped, { ...OPTIONS, descriptions: ['Use "node:<id>"; see [the rules](#x).'] }), [
+    'loses 1 of 1 paragraphs, list items and table cells of the specification\'s descriptions: "Use "node:<id>"; see the rules."' +
+      ' (text in <...> outside code is HTML to Markdown, which the converters drop; put it in backticks)',
+  ]);
+});
+
 test('names are compared with the escapes decoded', () => {
   const page = GOOD.replace('<p>Note</p>', '<p>Note</p><p>GET /a&lt;b&gt;</p>');
   assert.deepEqual(checkPage(page, { ...OPTIONS, names: ['GET /a<b>'] }), []);

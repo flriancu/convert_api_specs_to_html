@@ -17,8 +17,9 @@
  *   operation's method as a badge and examples folded; every part and field can be linked to,
  *   and the page opens with its contents (page.mjs, contents.mjs);
  * - the page is checked for those properties and for completeness: every operation, channel,
- *   message and schema of the description is shown, each operation with its badge
- *   (check_page.mjs). A failed check exits 1.
+ *   message and schema of the description is shown, each operation with its badge, and every
+ *   paragraph, list item and table cell of its descriptions (check_page.mjs). A failed check
+ *   exits 1.
  *
  * The output folder keeps a list of the pages the last build wrote
  * (.convert-api-specs-to-html.json); a page an earlier build wrote and this one does not is
@@ -36,7 +37,7 @@ import { fileURLToPath } from 'node:url';
 
 import { checkPage } from './check_page.mjs';
 import { checkRefs } from './check_refs.mjs';
-import { expectedNames, kindOf, operationCount, toMarkdown } from './convert.mjs';
+import { expectedDescriptions, expectedNames, kindOf, operationCount, toMarkdown } from './convert.mjs';
 import { renderPage } from './page.mjs';
 import { bundle, redoclyCli } from './redocly.mjs';
 
@@ -78,7 +79,9 @@ async function build(cli, spec, outDir) {
     } else {
       const html = renderPage(await toMarkdown(doc), { cssHref: STYLESHEET_NAME, kind: kindOf(doc) });
       writeFileSync(path.join(outDir, pageName(spec)), html);
-      problems = checkPage(html, { cssHref: STYLESHEET_NAME, names: expectedNames(doc), operations: operationCount(doc) });
+      problems = checkPage(html, {
+        cssHref: STYLESHEET_NAME, names: expectedNames(doc), operations: operationCount(doc), descriptions: expectedDescriptions(doc),
+      });
     }
   }
   return problems;

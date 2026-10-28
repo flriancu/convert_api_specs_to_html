@@ -58,6 +58,40 @@ export function operationCount(doc) {
   return count;
 }
 
+// Keys whose values are data, not description: examples, defaults, constants, enumerations and
+// extensions. An Example Object's description is text; its value is data.
+const DATA_KEYS = new Set(['example', 'default', 'const', 'enum', 'value']);
+// Keywords whose object maps names to objects (properties, paths, messages...): a name there is
+// not a keyword, so a property called "default" is described like any other.
+const NAME_MAPS = new Set([
+  'properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas', 'schemas', 'parameters',
+  'responses', 'headers', 'content', 'examples', 'requestBodies', 'securitySchemes', 'callbacks', 'links',
+  'paths', 'servers', 'variables', 'channels', 'operations', 'messages',
+]);
+
+/**
+ * Every description the document gives, as Markdown, in document order: the document's, its
+ * operations', parameters', messages', schemas' and properties', and named examples'.
+ */
+export function expectedDescriptions(doc) {
+  const found = [];
+  const walk = (node, key) => {
+    if (typeof node === 'string') {
+      if (key === 'description' && node.trim() !== '') found.push(node);
+    } else if (Array.isArray(node)) {
+      if (key !== 'examples') node.forEach((item) => walk(item, null));
+    } else if (node !== null && typeof node === 'object' && NAME_MAPS.has(key)) {
+      Object.values(node).forEach((item) => walk(item, null));
+    } else if (node !== null && typeof node === 'object') {
+      for (const [k, v] of Object.entries(node)) {
+        if (!DATA_KEYS.has(k) && !k.startsWith('x-')) walk(v, k);
+      }
+    }
+  };
+  walk(doc, null);
+  return found;
+}
+
 /**
  * The names a complete rendering shows: for OpenAPI each operation's id (or method and path)
  * and each schema; for AsyncAPI each channel and schema, each operation by its title or summary

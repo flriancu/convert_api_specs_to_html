@@ -165,6 +165,20 @@ function plain(text) {
   return text.trim().replace(/`|\*\*/g, '');
 }
 
+/**
+ * Whether the block belongs to the converters' contents list: a list of links within the page,
+ * a bold group label ("**Operations**"), or the blank lines between them. The AsyncAPI converter
+ * writes the description's introduction after its list, under the same heading, so the list
+ * ends at the first other block.
+ */
+function inContentsList(token) {
+  const linksOnly = token.type === 'list'
+    && token.items.every((item) => item.tokens.length === 1 && item.tokens[0].tokens?.length === 1
+      && item.tokens[0].tokens[0].type === 'link' && item.tokens[0].tokens[0].href.startsWith('#'));
+  const label = token.type === 'paragraph' && token.tokens.length === 1 && token.tokens[0].type === 'strong';
+  return token.type === 'space' || linksOnly || label;
+}
+
 /** The index of the next block after index i, past the blank lines marked keeps as space tokens. */
 function nextBlock(tokens, i) {
   let j = i + 1;
@@ -301,6 +315,8 @@ export function structure(tokens) {
     const isPart = heading.type === 'heading' && heading.depth >= 2;
     if (isPart && heading.depth === 2) {
       skipping = heading.text.trim() === CONTENTS_HEADING;
+    } else if (skipping && !inContentsList(token)) {
+      skipping = false;
     }
     if (skipping) {
       i = heading === token ? i : j;

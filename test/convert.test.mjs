@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { expectedNames, kindOf, toMarkdown } from '../convert.mjs';
+import { checkPage } from '../check_page.mjs';
+import { expectedDescriptions, expectedNames, kindOf, toMarkdown } from '../convert.mjs';
+import { renderPage } from '../page.mjs';
 
 const OPENAPI = {
   openapi: '3.1.0',
@@ -73,6 +75,48 @@ test("the converters' Markdown comes out tidied (tidy.mjs): a converter that wri
   const asyncapi = await toMarkdown(ASYNCAPI);
   assert.match(asyncapi, /^## Messages\n\n(<a id="[^"]+"><\/a>\n\n)?### note\.created$/m);
   assert.match(asyncapi, /^## Schemas\n\n(<a id="[^"]+"><\/a>\n\n)?### Note$/m);
+});
+
+test('descriptions: every one the document gives, and none from examples, defaults or extensions', () => {
+  const doc = {
+    openapi: '3.1.0',
+    info: { title: 'T', version: '1', description: 'The API.' },
+    paths: {
+      '/n': {
+        get: {
+          description: 'Lists.',
+          parameters: [{ name: 'q', in: 'query', description: 'A query.', schema: { type: 'string' } }],
+          responses: {
+            200: {
+              description: 'The notes.',
+              content: { 'application/json': { examples: { one: { description: 'One note.', value: { description: 'data' } } } } },
+            },
+          },
+          'x-note': { description: 'internal' },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Note: {
+          description: 'A note.',
+          properties: { default: { type: 'string', description: 'Named default.' }, value: { description: 'Named value.' } },
+          examples: [{ description: 'data' }],
+          default: { description: 'data' },
+        },
+      },
+    },
+  };
+  assert.deepEqual(expectedDescriptions(doc), ['The API.', 'Lists.', 'A query.', 'The notes.', 'One note.', 'A note.', 'Named default.', 'Named value.']);
+});
+
+test('an AsyncAPI page shows the whole of its introduction, which the converter writes after its contents list', async () => {
+  const doc = {
+    ...ASYNCAPI,
+    info: { ...ASYNCAPI.info, description: 'Facts the service publishes.\n\n**Connecting.** Add `apiVersion`.\n\n| Code | Meaning |\n| --- | --- |\n| 4408 | Behind |' },
+  };
+  const html = renderPage(await toMarkdown(doc), { cssHref: 'page.css', kind: 'asyncapi' });
+  assert.deepEqual(checkPage(html, { cssHref: 'page.css', names: expectedNames(doc), descriptions: expectedDescriptions(doc) }), []);
 });
 
 test('both converters show every expected name', async () => {

@@ -30,7 +30,7 @@ test('builds both examples into checked pages with their stylesheet', () => {
   }
 });
 
-test('raw HTML in a description never reaches the page as HTML; the text around it does', () => {
+test('raw HTML in a description never reaches the page as HTML; the text around it does, and the loss fails the build', () => {
   const spec = path.join(OUT, 'hostile.openapi.yaml');
   writeFileSync(spec, [
     'openapi: 3.1.0',
@@ -50,7 +50,8 @@ test('raw HTML in a description never reaches the page as HTML; the text around 
   ].join('\n'));
   const out = path.join(OUT, 'hostile');
   const result = run(spec, '-o', out);
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /loses 2 of 4 paragraphs, list items and table cells .*"<meta http-equiv=.*in backticks/);
   const html = readFileSync(path.join(out, 'hostile.openapi.html'), 'utf8');
   assert.doesNotMatch(html, /<meta http-equiv|<script|<img|onerror=/);
   assert.match(html, /Before the tags\./);

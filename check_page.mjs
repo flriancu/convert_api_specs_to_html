@@ -1,10 +1,17 @@
 /**
  * Checks that a page keeps its promises: nothing that a strict
  * Content-Security-Policy blocks or that runs, the stylesheet linked, every operation,
- * channel, message and schema of the specification shown, and each operation's badge (which
- * page.mjs makes from the converters' Markdown, so a converter that writes it differently
- * fails here rather than losing the badges quietly).
+ * channel, message and schema of the specification shown, every paragraph, list item and table
+ * cell of its descriptions shown, and each operation's badge (which page.mjs makes from the
+ * converters' Markdown, so a converter that writes it differently fails here rather than losing
+ * the badges or the text quietly).
+ *
+ * A description's raw HTML counts as text, as the page shows it: "<id>" written outside code is
+ * an HTML tag to Markdown (CommonMark 6.6), which the converters drop, so the check reports it.
  */
+import { Marked } from 'marked';
+
+import { escapeHtml } from './html.mjs';
 
 const FORBIDDEN = [
   [/<script\b/i, 'contains a <script> element'],
@@ -28,6 +35,43 @@ function textOf(html) {
     .replaceAll('&amp;', '&');
 }
 
+// Descriptions read as the page reads them: raw HTML as text, a link as its text.
+const DESCRIPTION_MARKED = new Marked({
+  gfm: true,
+  renderer: {
+    html: ({ text }) => escapeHtml(text),
+    link({ tokens }) {
+      return this.parser.parseInline(tokens);
+    },
+    image: ({ text }) => escapeHtml(text),
+  },
+});
+
+/** Text without its white space, so line breaks and the gaps tags leave do not count. */
+function squeezed(text) {
+  return text.replace(/\s+/g, '');
+}
+
+/** A description's blocks as text: each paragraph, heading, list item and table cell. */
+function descriptionBlocks(markdown) {
+  const blocks = [];
+  const add = (tokens) => {
+    for (const token of tokens) {
+      if (token.type === 'list') {
+        token.items.forEach((item) => add(item.tokens));
+      } else if (token.type === 'table') {
+        for (const cell of [...token.header, ...token.rows.flat()]) blocks.push(DESCRIPTION_MARKED.parseInline(cell.text));
+      } else if (token.type === 'blockquote') {
+        add(token.tokens);
+      } else if (token.type !== 'space' && token.type !== 'hr') {
+        blocks.push(DESCRIPTION_MARKED.parser([token]));
+      }
+    }
+  };
+  add(DESCRIPTION_MARKED.lexer(markdown));
+  return blocks.map((html) => textOf(html).trim()).filter((text) => text !== '');
+}
+
 /** Whether the text shows the name as a whole token, not as part of a longer word. */
 function shows(text, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -35,7 +79,7 @@ function shows(text, name) {
 }
 
 /** Problems with a page, as sentences; empty when it has every property. */
-export function checkPage(html, { cssHref, names, operations }) {
+export function checkPage(html, { cssHref, names, operations, descriptions = [] }) {
   // Only tags can run or load anything: text that mentions style= or onclick= is prose.
   const tags = html.match(/<[^>]*>/g) ?? [];
   const problems = FORBIDDEN.filter(([pattern]) => tags.some((tag) => pattern.test(tag))).map(([, problem]) => problem);
@@ -46,6 +90,14 @@ export function checkPage(html, { cssHref, names, operations }) {
   const missing = names.filter((name) => !shows(text, name));
   if (missing.length > 0) {
     problems.push(`does not show ${missing.length} of ${names.length} names from the specification: ${missing.slice(0, 10).join(', ')}`);
+  }
+  const page = squeezed(text);
+  const blocks = descriptions.flatMap(descriptionBlocks);
+  const lost = blocks.filter((block) => !page.includes(squeezed(block)));
+  if (lost.length > 0) {
+    const quoted = lost.slice(0, 5).map((block) => `"${block.length > 80 ? `${block.slice(0, 77)}...` : block}"`);
+    const hint = lost.some((block) => /<[A-Za-z/!]/.test(block)) ? ' (text in <...> outside code is HTML to Markdown, which the converters drop; put it in backticks)' : '';
+    problems.push(`loses ${lost.length} of ${blocks.length} paragraphs, list items and table cells of the specification's descriptions: ${quoted.join(', ')}${hint}`);
   }
   const badges = (html.match(/<li class="endpoint"><span class="method method-[a-z]+">/g) ?? []).length;
   if (operations !== undefined && badges !== operations) {
