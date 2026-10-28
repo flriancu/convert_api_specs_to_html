@@ -52,6 +52,19 @@ test("an operation's method and path become a badge; an AsyncAPI action too", ()
   assert.doesNotMatch(plain, /class="method/, 'a method without a path is not an operation');
 });
 
+test("the converters' lists of facts are marked wherever they are; other lists are not", () => {
+  const html = renderPage(
+    '# T\n\n### Message\n\nSent first.\n\n- **name:** `events.reset`\n- **contentType:** `application/json`\n\nNotes.\n\n' +
+      '- **Commands are HTTP.** Facts are events.\n- **`seat`**: `string`\n\nServers.\n\n- **URL:** `http://x`\n  - **Description:** nested\n',
+    CSS,
+  );
+  assert.match(html, /<ul class="facts">\n<li><strong>name:<\/strong> <code>events\.reset<\/code><\/li>\n<li><strong>contentType:<\/strong>/, 'after a paragraph too');
+  assert.match(html, /<ul>\n<li><strong>Commands are HTTP\.<\/strong>/, 'a sentence in bold, or a field, is no fact');
+  assert.match(html, /<ul>\n<li><strong>URL:<\/strong> <code>http:\/\/x<\/code><ul class="facts">/, 'an item with a list in it is no fact; the list in it may be');
+  const endpoint = renderPage('# T\n\n### Get notes\n\n- **Method:** `GET`\n- **Path:** `/notes`\n- **Operation ID:** `listNotes`', CSS);
+  assert.match(endpoint, /<ul class="facts">\n<li class="endpoint">/, "an operation's facts lead with its badge");
+});
+
 test('examples fold behind their label; other bold paragraphs and code blocks do not', () => {
   const html = renderPage('# T\n\n**Generated payload example:**\n\n```json\n{"a": 1}\n```\n\n**Note:**\n\n```\nplain\n```', CSS);
   assert.match(html, /<details class="example">\n<summary>Generated payload example<\/summary>\n<pre><code class="language-json">/);

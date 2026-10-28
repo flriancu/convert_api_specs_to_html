@@ -122,8 +122,9 @@ section.s3 pre, section.s3 code { background: var(--inner-bg); }
 section.s3 pre { border: 1px solid var(--card-line); }
 section.s3 pre code { background: none; }
 
-/* The list under a card's heading (method, path, id, tags) reads as one line of facts. */
-section.s3 > h3 + ul {
+/* A card's list of facts (method and path, id, tags, a message's name and content type)
+   reads as one line, wherever it is in the card (page.mjs marks it). */
+section.s3 ul.facts {
   display: flex;
   flex-wrap: wrap;
   gap: 0.2em 1.4em;
@@ -132,7 +133,7 @@ section.s3 > h3 + ul {
   font-size: 0.9em;
   color: var(--muted);
 }
-section.s3 > h3 + ul li + li { margin-top: 0; }
+section.s3 ul.facts li + li { margin-top: 0; }
 .endpoint { width: 100%; font-size: 1.1em; color: var(--text); }
 
 .method {

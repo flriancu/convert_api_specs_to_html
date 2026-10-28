@@ -36,6 +36,8 @@ const METHOD_ITEM = /^\*\*Method:\*\*\s+`([A-Z]+)`$/;
 const PATH_ITEM = /^\*\*Path:\*\*\s+`([^`]+)`$/;
 const TAGS_ITEM = /^\*\*Tags:\*\*\s+(.+)$/;
 const ACTION_ITEM = /^\*\*action:\*\*\s+`(send|receive)`$/;
+// A converter's fact: a bold label with its colon, then the value, on one line ("**name:** `events.reset`").
+const FACT_ITEM = /^\*\*[^*`\n]+:\*\*[ \u00a0]+[^\n]+$/;
 // The converters' labels before an example's code block: "Example:", "Generated example:",
 // "payload:", "Generated payload example:", and a named one, "Example: version".
 const EXAMPLE_LABEL = /^([A-Za-z ]*example|payload)(?::\s*(\S.*?))?:?$/i;
@@ -96,16 +98,22 @@ const makeMarked = (context) => new Marked({
     listitem(item) {
       return `<li${item.fieldId ? ` id="${item.fieldId}"` : ''}>${this.parser.parse(item.tokens)}</li>\n`;
     },
-    // An operation's method and path, or an AsyncAPI action, become the list's first item,
-    // as a badge; any other list is rendered as marked renders it.
+    // A list of the converters' facts (an operation's id and tags, a message's name and content
+    // type) is marked as such, wherever it is, so the stylesheet sets it as one line; an
+    // operation's method and path, or an AsyncAPI action, become its first item, as a badge.
+    // Any other list is rendered as marked renders it.
     list(token) {
-      const facts = [METHOD_ITEM, PATH_ITEM, ACTION_ITEM];
+      const endpointFacts = [METHOD_ITEM, PATH_ITEM, ACTION_ITEM];
       const endpoint = token.ordered ? null : endpointBadge(endpointOf(token));
-      if (endpoint === null) {
-        return false;
+      const isFacts = !token.ordered && token.items.every((item) => item.tokens.length === 1 && FACT_ITEM.test(item.text.trim()));
+      let html = false;
+      if (endpoint !== null) {
+        const rest = token.items.filter((item) => !endpointFacts.some((fact) => fact.test(item.text.trim())));
+        html = `<ul class="facts">\n<li class="endpoint">${endpoint}</li>\n${rest.map((item) => this.listitem(item)).join('')}</ul>\n`;
+      } else if (isFacts) {
+        html = `<ul class="facts">\n${token.items.map((item) => this.listitem(item)).join('')}</ul>\n`;
       }
-      const rest = token.items.filter((item) => !facts.some((fact) => fact.test(item.text.trim())));
-      return `<ul>\n<li class="endpoint">${endpoint}</li>\n${rest.map((item) => this.listitem(item)).join('')}</ul>\n`;
+      return html;
     },
   },
   extensions: [

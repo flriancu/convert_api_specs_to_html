@@ -81,7 +81,7 @@ All dependencies are pinned exactly in `package.json`.
 Add it as a development dependency pinned to a release tag; the lockfile records the commit.
 
 ```
-npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.0
+npm install --save-dev github:flriancu/convert_api_specs_to_html#v2.6.1
 ```
 
 ```json
