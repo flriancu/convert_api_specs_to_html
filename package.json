@@ -37,7 +37,7 @@
     "examples:lint": "redocly lint --config redocly.yaml examples/notes.openapi.yaml examples/notes.asyncapi.yaml && node check_examples.mjs examples/notes.openapi.yaml examples/notes.asyncapi.yaml"
   },
   "dependencies": {
-    "@redocly/cli": "2.71.1",
+    "@redocly/cli": "2.76.0",
     "@scalar/asyncapi-to-markdown": "0.2.2",
     "@scalar/openapi-to-markdown": "1.7.0",
     "ajv": "8.20.0",
